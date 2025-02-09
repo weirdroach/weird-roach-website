@@ -1,7 +1,7 @@
 import fetch from 'node-fetch';
 
 // Printful API configuration
-const PRINTFUL_API_URL = 'https://api.printful.com';
+const PRINTFUL_API_URL = 'https://api.printful.com/v2';
 const PRINTFUL_API_TOKEN = process.env.PRINTFUL_API_TOKEN;
 const STORE_ID = process.env.PRINTFUL_STORE_ID;
 
@@ -49,11 +49,12 @@ export default async function handler(req, res) {
 
         // Make request to Printful
         console.log('Making request to Printful API...');
-        const response = await fetch(`${PRINTFUL_API_URL}/sync/products`, {
+        const response = await fetch(`${PRINTFUL_API_URL}/stores/${STORE_ID}/products`, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${PRINTFUL_API_TOKEN}`,
                 'Content-Type': 'application/json',
+                'Accept': 'application/json',
                 'X-PF-Store-Id': STORE_ID
             }
         });
@@ -77,22 +78,22 @@ export default async function handler(req, res) {
         }
 
         const data = await response.json();
-        console.log('Successfully fetched products. Count:', data.result?.length || 0);
+        console.log('Successfully fetched products. Count:', data.items?.length || 0);
 
-        if (!data.result || !Array.isArray(data.result)) {
+        if (!data.items || !Array.isArray(data.items)) {
             console.error('Invalid response format:', data);
             return res.status(500).json({
                 error: 'Invalid response format',
-                details: 'Expected result array in response'
+                details: 'Expected items array in response'
             });
         }
 
         // Process and return the products
-        const processedProducts = data.result.map(product => ({
+        const processedProducts = data.items.map(product => ({
             id: product.id,
             name: product.name,
             description: product.description || '',
-            variants: product.sync_variants || [],
+            variants: product.variants || [],
             thumbnail_url: product.thumbnail_url,
             retail_price: product.retail_price,
             sync_product: product.sync_product || {},
