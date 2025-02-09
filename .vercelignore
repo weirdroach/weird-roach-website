@@ -1,0 +1,9 @@
+README.md
+.git
+assets/music/**
+unedited media/**
+assets/Photoshop files/**
+node_modules/**
+*.wav
+*.mp3
+*.psd 

@@ -23,13 +23,19 @@ export default async function handler(req, res) {
     }
 
     try {
+        // Debug environment variables
+        console.log('=== Debug Environment Variables ===');
+        console.log('NODE_ENV:', process.env.NODE_ENV);
+        console.log('PRINTFUL_API_TOKEN exists:', !!PRINTFUL_API_TOKEN);
+        console.log('PRINTFUL_API_TOKEN length:', PRINTFUL_API_TOKEN?.length);
+        console.log('STORE_ID:', STORE_ID);
+
         // Validate environment variables
         if (!PRINTFUL_API_TOKEN) {
             console.error('Printful API token is missing');
             return res.status(500).json({ 
                 error: 'Configuration error',
-                details: 'Printful API token is not configured',
-                timestamp: new Date().toISOString()
+                details: 'Printful API token is not configured'
             });
         }
 
@@ -37,65 +43,49 @@ export default async function handler(req, res) {
             console.error('Printful Store ID is missing');
             return res.status(500).json({ 
                 error: 'Configuration error',
-                details: 'Printful Store ID is not configured',
-                timestamp: new Date().toISOString()
+                details: 'Printful Store ID is not configured'
             });
         }
 
-        console.log('=== Printful API Debug ===');
-        console.log('Environment:', process.env.NODE_ENV);
-        console.log('Fetching products from Printful...');
-        console.log('Store ID:', STORE_ID);
-        console.log('API Token exists:', !!PRINTFUL_API_TOKEN);
-        console.log('API Token starts with:', PRINTFUL_API_TOKEN.substring(0, 4));
-        
-        const endpoint = `${PRINTFUL_API_URL}/sync/products`;
-        console.log('Requesting from endpoint:', endpoint);
-
-        const headers = {
-            'Authorization': `Bearer ${PRINTFUL_API_TOKEN}`,
-            'Content-Type': 'application/json',
-            'X-PF-Store-Id': STORE_ID
-        };
-
-        const response = await fetch(endpoint, { 
+        // Make request to Printful
+        console.log('Making request to Printful API...');
+        const response = await fetch(`${PRINTFUL_API_URL}/sync/products`, {
             method: 'GET',
-            headers,
-            timeout: 10000 // 10 second timeout
+            headers: {
+                'Authorization': `Bearer ${PRINTFUL_API_TOKEN}`,
+                'Content-Type': 'application/json',
+                'X-PF-Store-Id': STORE_ID
+            }
         });
+
+        // Log response status
+        console.log('Printful API response status:', response.status);
 
         if (!response.ok) {
             const errorText = await response.text();
             console.error('Printful API error:', {
                 status: response.status,
                 statusText: response.statusText,
-                error: errorText,
-                headers: Object.fromEntries(response.headers.entries())
+                error: errorText
             });
             
             return res.status(response.status).json({
                 error: 'Printful API error',
                 status: response.status,
-                details: errorText,
-                timestamp: new Date().toISOString()
+                details: errorText
             });
         }
 
         const data = await response.json();
-        
+        console.log('Successfully fetched products. Count:', data.result?.length || 0);
+
         if (!data.result || !Array.isArray(data.result)) {
             console.error('Invalid response format:', data);
             return res.status(500).json({
                 error: 'Invalid response format',
-                details: 'Expected result array in response',
-                timestamp: new Date().toISOString()
+                details: 'Expected result array in response'
             });
         }
-
-        console.log('Products fetched successfully:', {
-            count: data.result.length,
-            products: data.result.map(p => p.name)
-        });
 
         // Process and return the products
         const processedProducts = data.result.map(product => ({
@@ -116,15 +106,12 @@ export default async function handler(req, res) {
     } catch (error) {
         console.error('Error in /api/products:', {
             message: error.message,
-            stack: error.stack,
-            timestamp: new Date().toISOString()
+            stack: error.stack
         });
         
         res.status(500).json({ 
             error: 'Internal server error',
-            details: error.message,
-            timestamp: new Date().toISOString(),
-            path: '/api/products'
+            details: error.message
         });
     }
 } 
