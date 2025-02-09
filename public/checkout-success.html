@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Successful - Weird Roach</title>
+    <link rel="stylesheet" href="css/store.css">
+    <style>
+        .success-container {
+            text-align: center;
+            padding: 2rem;
+            max-width: 600px;
+            margin: 2rem auto;
+        }
+        .success-icon {
+            font-size: 4rem;
+            color: #4CAF50;
+            margin-bottom: 1rem;
+        }
+        .success-message {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .return-button {
+            display: inline-block;
+            padding: 1rem 2rem;
+            background-color: #000;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 4px;
+            margin-top: 1rem;
+        }
+        .return-button:hover {
+            background-color: #333;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="index.html">
+            <img src="assets/weirdroach logo (transparent).png" alt="Weird Roach logo - return to home page">
+        </a>
+        <nav aria-label="Main navigation">
+            <ul class="nav-links">
+                <li><a href="sounds.html">
+                    <img src="assets/menu/Music_1.png" alt="Sounds page">
+                </a></li>
+                <li><a href="visuals.html">
+                    <img src="assets/menu/Visuals_1.png" alt="Visuals page">
+                </a></li>
+                <li><a href="store.html">
+                    <img src="assets/menu/Store_1.png" alt="Store page">
+                </a></li>
+                <li><a href="contact.html">
+                    <img src="assets/menu/Contact_1.png" alt="Contact page">
+                </a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <div class="success-container">
+            <div class="success-icon">✓</div>
+            <h1 class="success-message">Order Successful!</h1>
+            <p>Thank you for your purchase. You will receive an email confirmation shortly.</p>
+            <a href="store.html" class="return-button">Return to Store</a>
+        </div>
+    </main>
+
+    <script>
+        // Clear the cart after successful purchase
+        localStorage.removeItem('cart');
+    </script>
+</body>
+</html> 

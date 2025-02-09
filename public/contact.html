@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact - Weird Roach</title>
+    <link rel="stylesheet" href="css/contact.css">
+</head>
+<body>
+    <header>
+        <a href="index.html">
+            <img src="assets/weirdroach logo (transparent).png" 
+            alt="Weird Roach logo - return to home page">
+        </a>
+        <nav aria-label="Main navigation">
+            <ul class="nav-links">
+                <li><a href="sounds.html">
+                    <img src="assets/menu/Music_1.png" alt="Sounds page">
+                </a></li>
+                <li><a href="visuals.html">
+                    <img src="assets/menu/Visuals_1.png" alt="Visuals page">
+                </a></li>
+                <li><a href="store.html">
+                    <img src="assets/menu/Store_1.png" alt="Store page">
+                </a></li>
+                <li><a href="contact.html" aria-current="page">
+                    <img src="assets/menu/Contact_1.png" alt="Contact page">
+                </a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <div class="contact-container">
+            <p class="contact-intro">Have a question or want to collaborate? Send me a message below or email me directly at <a href="mailto:weirdroach@gmail.com" class="email-link">weirdroach@gmail.com</a></p>
+            
+            <form id="contactForm" action="https://formspree.io/f/weirdroach@gmail.com" method="POST">
+                <div class="form-group">
+                    <label for="name">Name</label>
+                    <input type="text" id="name" name="name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="subject">Subject</label>
+                    <input type="text" id="subject" name="subject" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="message">Message</label>
+                    <textarea id="message" name="message" required rows="6"></textarea>
+                </div>
+
+                <button type="submit" class="submit-button">Send Message</button>
+            </form>
+
+            <div class="social-links">
+                <div class="social-icons">
+                    <a href="https://instagram.com/weirdroach/" target="_blank" class="social-icon">
+                        <img src="assets/logo-icons/instagram-logo.png" alt="Instagram">
+                    </a>
+                    <a href="https://facebook.com/weirdroach" target="_blank" class="social-icon">
+                        <img src="assets/logo-icons/facebook-logo.png" alt="Facebook">
+                    </a>
+                    <a href="https://weirdroach.bandcamp.com/album/weird-roach-2" target="_blank" class="social-icon">
+                        <img src="assets/logo-icons/bandcamp-logo.png" alt="Bandcamp">
+                    </a>
+                    <a href="https://soundcloud.com/weirdroach" target="_blank" class="social-icon">
+                        <img src="assets/logo-icons/soundcloud-logo.png" alt="Soundcloud">
+                    </a>
+                    <a href="https://open.spotify.com/artist/6Ihd20LSGhT7eYKu6Wfwkz" target="_blank" class="social-icon">
+                        <img src="assets/logo-icons/spotify-logo.png" alt="Spotify">
+                    </a>
+                    <a href="https://www.youtube.com/@weirdroach/featured" target="_blank" class="social-icon">
+                        <img src="assets/logo-icons/youtube-logo.png" alt="Youtube">
+                    </a>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>
+
+
+

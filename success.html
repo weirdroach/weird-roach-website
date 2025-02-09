@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Success - Weird Roach</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .success-container {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .success-icon {
+            font-size: 48px;
+            color: #4CAF50;
+            margin-bottom: 20px;
+        }
+
+        .success-message {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        .order-details {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+
+        .back-to-store {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #808000;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            transition: background-color 0.3s ease;
+        }
+
+        .back-to-store:hover {
+            background-color: #666600;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav>
+            <ul>
+                <li><a href="index.html"><img src="/assets/menu/home_1.png" alt="Home page"></a></li>
+                <li><a href="sounds.html"><img src="/assets/menu/sounds_1.png" alt="Sounds page"></a></li>
+                <li><a href="visuals.html"><img src="/assets/menu/visuals_1.png" alt="Visuals page"></a></li>
+                <li><a href="store.html"><img src="/assets/menu/store_1.png" alt="Store page"></a></li>
+                <li><a href="contact.html"><img src="/assets/menu/contact_1.png" alt="Contact page"></a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <div class="success-container">
+            <div class="success-icon">✓</div>
+            <h1 class="success-message">Thank You for Your Order!</h1>
+            <div class="order-details">
+                <p>Your order has been successfully placed and is being processed.</p>
+                <p>You will receive a confirmation email shortly with your order details.</p>
+                <p>Order ID: <span id="order-id"></span></p>
+            </div>
+            <a href="store.html" class="back-to-store">Return to Store</a>
+        </div>
+    </main>
+
+    <script>
+        // Get session ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const sessionId = urlParams.get('session_id');
+        
+        if (sessionId) {
+            document.getElementById('order-id').textContent = sessionId;
+        }
+    </script>
+</body>
+</html> 

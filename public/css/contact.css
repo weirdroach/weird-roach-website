@@ -1,0 +1,236 @@
+/* Reset and base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: white;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+}
+
+/* Header styles */
+header {
+    position: fixed;
+    width: 160px;
+    top: 0;
+    left: 0;
+    padding: 15px 10px;
+    background: white;
+    z-index: 100;
+    height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+header > a {
+    display: block;
+    width: 100%;
+    text-align: center;
+}
+
+header > a img {
+    max-width: 100%;
+    height: auto;
+    margin-bottom: 15px;
+}
+
+.nav-links {
+    list-style: none;
+    margin-top: 10px;
+    width: 100%;
+}
+
+.nav-links li {
+    margin: 10px 0;
+    text-align: center;
+}
+
+.nav-links img {
+    max-width: 100%;
+    height: auto;
+    transition: transform 0.2s ease;
+}
+
+.nav-links img:hover {
+    transform: scale(1.05);
+}
+
+/* Main content */
+main {
+    margin-left: 180px;
+    padding: 40px;
+    min-height: 100vh;
+}
+
+/* Contact container */
+.contact-container {
+    padding: 7rem 2rem 2rem;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+h1 {
+    font-size: 2.5em;
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.contact-intro {
+    font-size: 1.1em;
+    margin-bottom: 30px;
+    color: #666;
+}
+
+.email-link {
+    color: #000;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+.email-link:hover {
+    color: #333;
+    text-decoration: underline;
+}
+
+/* Form styles */
+.form-group {
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    color: #444;
+    font-weight: 500;
+}
+
+input,
+textarea {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e1e1e1;
+    border-radius: 6px;
+    font-size: 16px;
+    transition: border-color 0.3s ease;
+}
+
+input:focus,
+textarea:focus {
+    outline: none;
+    border-color: #4A90E2;
+}
+
+textarea {
+    resize: vertical;
+    min-height: 120px;
+}
+
+.submit-button {
+    background-color: #808000;
+    color: white;
+    padding: 14px 28px;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.submit-button:hover {
+    background-color: #666600;
+}
+
+/* Social media section */
+.social-links {
+    margin-top: 60px;
+    text-align: center;
+    padding-top: 30px;
+    border-top: 1px solid #eee;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.social-links h2 {
+    font-size: 1.5em;
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.social-icons {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    flex-wrap: wrap;
+    padding: 20px;
+}
+
+.social-icon {
+    display: inline-block;
+    transition: transform 0.3s ease;
+    width: 45px;
+    height: 45px;
+}
+
+.social-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.social-icon:hover {
+    transform: translateY(-5px);
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+    header {
+        position: static;
+        width: 100%;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid #eee;
+        padding: 10px;
+    }
+
+    .nav-links {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .nav-links li {
+        margin: 5px 10px;
+    }
+
+    main {
+        margin-left: 0;
+        padding: 20px;
+    }
+
+    .contact-container {
+        padding: 10px;
+    }
+
+    h1 {
+        font-size: 2em;
+    }
+}
+
+/* Focus styles */
+a:focus {
+    outline: 3px transparent;
+    outline-offset: 2px;
+}
+
+/* Focus styles for accessibility */
+button:focus,
+input:focus,
+textarea:focus {
+    outline: 3px solid #4A90E2;
+    outline-offset: 2px;
+}
