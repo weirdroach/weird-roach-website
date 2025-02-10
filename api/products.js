@@ -1,5 +1,15 @@
 import express from 'express';
 import fetch from 'node-fetch';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
+
+// Debug environment variables
+console.log('=== API Route Environment Variables ===');
+console.log('Store ID:', process.env.PRINTFUL_STORE_ID);
+console.log('Access token exists:', !!process.env.PRINTFUL_ACCESS_TOKEN);
+console.log('====================================');
 
 const router = express.Router();
 
@@ -129,29 +139,42 @@ router.get('/:id', async (req, res) => {
     try {
         const productId = req.params.id;
         console.log(`=== Fetching details for product ${productId} ===`);
+        console.log('Environment check:');
+        console.log('- Store ID:', process.env.PRINTFUL_STORE_ID);
+        console.log('- Access token exists:', !!process.env.PRINTFUL_ACCESS_TOKEN);
+        console.log('- Access token:', process.env.PRINTFUL_ACCESS_TOKEN ? `${process.env.PRINTFUL_ACCESS_TOKEN.substring(0, 4)}...${process.env.PRINTFUL_ACCESS_TOKEN.substring(-4)}` : 'missing');
         
         if (!PRINTFUL_ACCESS_TOKEN || !PRINTFUL_STORE_ID) {
-            console.error('Printful configuration missing');
-            return res.status(500).json({ 
-                error: 'Configuration error',
-                details: 'Printful API credentials are not fully configured'
+            console.error('Missing configuration:', {
+                hasToken: !!PRINTFUL_ACCESS_TOKEN,
+                hasStoreId: !!PRINTFUL_STORE_ID
             });
+            throw new Error('Printful API credentials are not fully configured');
         }
 
         // Get product details
         const response = await makePrintfulRequest(`/store/products/${productId}`);
-
+        
+        console.log('Printful API response status:', response.status);
+        
         if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Printful API Error:', {
+                status: response.status,
+                statusText: response.statusText,
+                body: errorText
+            });
+            
             return res.status(response.status).json({
                 error: 'Failed to fetch product details from Printful',
                 status: response.status,
-                details: await response.text()
+                details: errorText
             });
         }
 
         const data = await response.json();
         console.log('Successfully fetched product details');
-
+        
         // Transform the response
         const product = data.result;
         const transformedProduct = {
@@ -178,7 +201,8 @@ router.get('/:id', async (req, res) => {
         console.error('Error fetching product details:', error);
         res.status(500).json({
             error: 'Internal server error',
-            message: error.message
+            message: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 });
