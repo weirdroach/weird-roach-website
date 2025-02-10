@@ -6,9 +6,13 @@ async function fetchProducts() {
     try {
         console.log('Fetching products from server...');
         const response = await fetch('/api/products');
+        
         if (!response.ok) {
-            throw new Error('Failed to fetch products');
+            const errorData = await response.json();
+            console.error('Server Error:', errorData);
+            throw new Error(errorData.error || 'Failed to fetch products');
         }
+        
         const data = await response.json();
         
         // Detailed logging of server response
@@ -27,60 +31,24 @@ async function fetchProducts() {
                     color: firstVariant.color,
                     size: firstVariant.size,
                     preview_url: firstVariant.preview_url,
-                    has_mockup_files: Boolean(firstVariant.mockup_files?.length),
-                    has_files: Boolean(firstVariant.files?.length)
-                });
-                
-                // Log all available colors
-                const colors = [...new Set(product.variants.map(v => v.color))];
-                console.log('Available colors:', colors);
-                
-                // Check preview URLs for each color
-                colors.forEach(color => {
-                    const colorVariant = product.variants.find(v => v.color === color);
-                    if (colorVariant) {
-                        console.log(`Preview URL for ${color}:`, colorVariant.preview_url);
-                    }
+                    price: firstVariant.price,
+                    in_stock: firstVariant.in_stock
                 });
             }
         });
         
-        // Process the products as before
-        products = data.map(product => {
-            // Get retail price from either the product or its first variant
-            const retail_price = product.retail_price || 
-                                (product.variants && product.variants[0] ? product.variants[0].retail_price : 0);
-            
-            return {
-                id: product.id,
-                name: product.name,
-                description: product.description || '',
-                retail_price: retail_price,
-                category: product.type || 'clothing',
-                thumbnail_url: product.thumbnail_url,
-                variants: product.variants.map(variant => ({
-                    id: variant.id,
-                    size: variant.size,
-                    color: variant.color,
-                    in_stock: variant.in_stock,
-                    stock_level: variant.stock_level,
-                    preview_url: variant.preview_url,
-                    retail_price: variant.retail_price || retail_price,
-                    files: variant.files || [],
-                    mockup_files: variant.mockup_files || []
-                }))
-            };
-        });
-        
+        // Store the products
+        products = data;
         return products;
     } catch (error) {
         console.error('Error fetching products:', error);
         document.querySelector('.products-grid').innerHTML = `
             <div class="error-message">
-                <p>Failed to load products. Please try again later.</p>
+                <p>Failed to load products: ${error.message}</p>
                 <button onclick="loadProducts()" class="retry-button">Retry</button>
             </div>
         `;
+        throw error;
     }
 }
 
@@ -161,139 +129,104 @@ async function loadProducts() {
         </div>
     `;
 
-    await fetchProducts();
-    
-    grid.innerHTML = '';
-    products.forEach(product => {
-        console.log('Rendering product:', product);
+    try {
+        await fetchProducts();
         
-        // Add defensive check for retail price and ensure it's a number
-        const retailPrice = parseFloat(product.retail_price) || 0;
-        console.log('Product retail price:', retailPrice);
+        grid.innerHTML = '';
+        products.forEach(product => {
+            console.log('Rendering product:', product);
+            
+            // Get unique colors using case-insensitive comparison
+            const uniqueColors = [];
+            product.variants.forEach(variant => {
+                if (variant.color && !uniqueColors.find(c => c.toLowerCase() === variant.color.toLowerCase())) {
+                    uniqueColors.push(variant.color);
+                }
+            });
+            console.log('Unique colors for product:', uniqueColors);
 
-        // Get unique colors using case-insensitive comparison
-        const uniqueColors = [];
-        product.variants.forEach(variant => {
-            if (variant.color && !uniqueColors.find(c => c.toLowerCase() === variant.color.toLowerCase())) {
-                uniqueColors.push(variant.color);
-            }
-        });
-        console.log('Unique colors for product:', uniqueColors);
+            // Find the first variant with a mockup file or preview URL
+            const defaultVariant = product.variants.find(v => v.mockup_files?.length > 0) || 
+                                 product.variants.find(v => v.preview_url) ||
+                                 product.variants[0];
+            
+            const defaultImage = defaultVariant ? getBestImageUrl(defaultVariant) : 
+                               (product.thumbnail_url || 'assets/placeholder.png');
+            
+            console.log('Default variant:', defaultVariant?.id);
+            console.log('Default image:', defaultImage);
 
-        // Find the first variant with a mockup file or preview URL
-        const defaultVariant = product.variants.find(v => v.mockup_files?.length > 0) || 
-                             product.variants.find(v => v.preview_url) ||
-                             product.variants[0];
-        
-        const defaultImage = defaultVariant ? getBestImageUrl(defaultVariant) : 
-                           (product.thumbnail_url || 'assets/placeholder.png');
-        
-        console.log('Default variant:', defaultVariant?.id);
-        console.log('Default image:', defaultImage);
-
-        const productElement = document.createElement('article');
-        productElement.className = 'product-item';
-        productElement.dataset.category = product.category;
-        productElement.id = `product-${product.id}`;
-        
-        const colorOptionsHtml = uniqueColors.length > 0 ? `
-            <div class="color-options">
-                ${uniqueColors.map(color => {
-                    const variant = product.variants.find(v => v.color === color);
-                    const colorCode = getColorCode(color);
-                    console.log(`Creating color button for ${color}:`, colorCode);
-                    return `
-                        <button 
-                            class="color-circle ${color === uniqueColors[0] ? 'selected' : ''}" 
-                            data-color="${color}"
-                            data-product-id="${product.id}"
-                            style="background-color: ${colorCode}"
-                            title="${color}"
-                            onclick="selectColor(${product.id}, '${color.replace(/'/g, "\\'")}')">
-                        </button>`;
-                }).join('')}
-            </div>
-            <div class="selected-color" style="min-height: 20px; margin-bottom: 15px;">
-                Selected: ${uniqueColors[0]}
-            </div>
-        ` : '';
-
-        productElement.innerHTML = `
-            <div class="product-image-container" data-product-id="${product.id}">
-                <div class="loading-spinner"></div>
-                <img src="${defaultImage}" 
-                     alt="${product.name}" 
-                     class="product-image"
-                     loading="lazy">
-            </div>
-            <div class="product-details">
-                <h3 class="product-name">${product.name}</h3>
-                <p class="product-description">${product.description}</p>
-                <p class="product-price">$${retailPrice.toFixed(2)}</p>
-                
-                <div class="product-variants">
-                    ${colorOptionsHtml}
-                    
-                    ${product.variants.some(v => v.size) ? `
-                        <div class="variant-group">
-                            <select class="size-select" data-product-id="${product.id}">
-                                <option value="">Select Size</option>
-                                ${getAvailableSizes(product, uniqueColors[0])}
-                            </select>
-                        </div>
-                    ` : ''}
+            const productElement = document.createElement('article');
+            productElement.className = 'product-item';
+            productElement.dataset.category = product.category;
+            productElement.id = `product-${product.id}`;
+            
+            const colorOptionsHtml = uniqueColors.length > 0 ? `
+                <div class="color-options">
+                    ${uniqueColors.map(color => {
+                        const variant = product.variants.find(v => v.color === color);
+                        const colorCode = getColorCode(color);
+                        console.log(`Creating color button for ${color}:`, colorCode);
+                        return `
+                            <button 
+                                class="color-circle ${color === uniqueColors[0] ? 'selected' : ''}" 
+                                data-color="${color}"
+                                data-product-id="${product.id}"
+                                style="background-color: ${colorCode}"
+                                title="${color}"
+                                onclick="selectColor(${product.id}, '${color.replace(/'/g, "\\'")}')">
+                            </button>`;
+                    }).join('')}
                 </div>
-                
-                <button onclick="addToCart(${JSON.stringify({...product, retail_price: retailPrice}).replace(/"/g, '&quot;')})" 
-                        class="buy-button">
-                    Add to Cart
-                </button>
+                <div class="selected-color" style="min-height: 20px; margin-bottom: 15px;">
+                    Selected: ${uniqueColors[0]}
+                </div>
+            ` : '';
+
+            productElement.innerHTML = `
+                <div class="product-image-container" data-product-id="${product.id}">
+                    <div class="loading-spinner"></div>
+                    <img src="${defaultImage}" 
+                         alt="${product.name}" 
+                         class="product-image"
+                         loading="lazy">
+                </div>
+                <div class="product-details">
+                    <h3 class="product-name">${product.name}</h3>
+                    <p class="product-description">${product.description}</p>
+                    <p class="product-price">$${defaultVariant?.price || 0}</p>
+                    
+                    <div class="product-variants">
+                        ${colorOptionsHtml}
+                        
+                        ${product.variants.some(v => v.size) ? `
+                            <div class="variant-group">
+                                <select class="size-select" data-product-id="${product.id}">
+                                    <option value="">Select Size</option>
+                                    ${getAvailableSizes(product, uniqueColors[0])}
+                                </select>
+                            </div>
+                        ` : ''}
+                    </div>
+                    
+                    <button onclick="addToCart(${JSON.stringify({...product, price: defaultVariant?.price || 0}).replace(/"/g, '&quot;')})" 
+                            class="buy-button">
+                        Add to Cart
+                    </button>
+                </div>
+            `;
+            
+            grid.appendChild(productElement);
+        });
+    } catch (error) {
+        console.error('Error loading products:', error);
+        grid.innerHTML = `
+            <div class="error-message">
+                <p>Failed to load products: ${error.message}</p>
+                <button onclick="loadProducts()" class="retry-button">Retry</button>
             </div>
         `;
-
-        grid.appendChild(productElement);
-
-        // Handle the default image load
-        const imgElement = productElement.querySelector('.product-image');
-        const loadingSpinner = productElement.querySelector('.loading-spinner');
-        
-        // Show loading spinner initially
-        loadingSpinner.style.display = 'block';
-        imgElement.style.opacity = '0';
-        
-        if (defaultImage) {
-            // Create a new image object to preload
-            const newImage = new Image();
-            newImage.onload = () => {
-                imgElement.src = defaultImage;
-                requestAnimationFrame(() => {
-                    imgElement.style.opacity = '1';
-                    loadingSpinner.style.display = 'none';
-                });
-                console.log('Image loaded successfully:', defaultImage);
-            };
-
-            newImage.onerror = () => {
-                console.error('Failed to load image:', defaultImage);
-                // Try to use the product's thumbnail as fallback
-                if (product.thumbnail_url && product.thumbnail_url !== defaultImage) {
-                    imgElement.src = product.thumbnail_url;
-                }
-                requestAnimationFrame(() => {
-                    imgElement.style.opacity = '1';
-                    loadingSpinner.style.display = 'none';
-                });
-            };
-
-            // Start loading the image
-            newImage.src = defaultImage;
-        } else {
-            // No image available
-            loadingSpinner.style.display = 'none';
-            imgElement.style.opacity = '1';
-            console.error('No image available for product:', product.name);
-        }
-    });
+    }
 }
 
 // Helper function to get available sizes for a color

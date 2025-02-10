@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://*.stripe.com https://*.printful.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://*.stripe.com https://*.stripe.network js.stripe.com https://m.stripe.network https://m.stripe.com; connect-src 'self' https://*.stripe.com https://api.stripe.com https://m.stripe.com https://*.stripe.network https://m.stripe.network https://api.printful.com https://*.printful.com https://js.stripe.com; style-src 'self' 'unsafe-inline' https://*.stripe.com; img-src 'self' https://*.stripe.com https://*.printful.com data: blob: *; frame-src 'self' https://*.stripe.com https://*.stripe.network https://js.stripe.com https://m.stripe.network https://m.stripe.com; worker-src 'self' blob: https://*.stripe.com https://*.stripe.network; child-src 'self' blob: https://*.stripe.com https://*.stripe.network; font-src 'self' data:; form-action 'self' https://*.stripe.com;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://*.stripe.com https://*.printful.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.stripe.com https://*.stripe.network js.stripe.com https://m.stripe.network https://m.stripe.com; connect-src 'self' http://localhost:* https://*.stripe.com https://api.stripe.com https://m.stripe.com https://*.stripe.network https://m.stripe.network https://api.printful.com https://*.printful.com https://js.stripe.com; style-src 'self' 'unsafe-inline' https://*.stripe.com; img-src 'self' https://*.stripe.com https://*.printful.com data: blob: *; frame-src 'self' https://*.stripe.com https://*.stripe.network https://js.stripe.com https://m.stripe.network https://m.stripe.com; worker-src 'self' blob: https://*.stripe.com https://*.stripe.network; child-src 'self' blob: https://*.stripe.com https://*.stripe.network; font-src 'self' data:; form-action 'self' https://*.stripe.com;">
     <title>Store - Weird Roach</title>
-    <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+    <link rel="icon" type="image/png" href="assets/weirdroach logo (transparent).png">
     <link rel="stylesheet" href="css/store.css">
     <script>
-        // Force HTTPS
-        if (window.location.protocol === 'http:' && window.location.hostname === 'localhost') {
-            window.location.href = window.location.href.replace('http:', 'https:').replace(':3000', ':3001');
+        // Force HTTPS only in production
+        if (window.location.hostname !== 'localhost' && window.location.protocol === 'http:') {
+            window.location.href = window.location.href.replace('http:', 'https:');
         }
     </script>
     <script src="https://js.stripe.com/v3/" async></script>
