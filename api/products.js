@@ -47,84 +47,26 @@ const makePrintfulRequest = async (endpoint, options = {}) => {
 // GET /api/products
 router.get('/', async (req, res) => {
     try {
-        console.log('=== Debug Environment Variables ===');
-        console.log('NODE_ENV:', process.env.NODE_ENV);
+        console.log('=== Fetching all products ===');
+        console.log('Environment check:');
         console.log('Store ID:', PRINTFUL_STORE_ID);
         console.log('Access token exists:', !!PRINTFUL_ACCESS_TOKEN);
-
+        
         // Validate environment variables
         if (!PRINTFUL_ACCESS_TOKEN || !PRINTFUL_STORE_ID) {
-            console.error('Printful configuration missing');
-            return res.status(500).json({ 
-                error: 'Configuration error',
-                details: 'Printful API credentials are not fully configured'
-            });
+            throw new Error('Printful access token or store ID is missing');
         }
 
-        // First get the sync products
-        console.log('Fetching sync products from Printful...');
-        const syncResponse = await makePrintfulRequest('/store/products');
-
-        if (!syncResponse.ok) {
-            return res.status(syncResponse.status).json({
-                error: 'Failed to fetch products from Printful',
-                status: syncResponse.status,
-                details: await syncResponse.text()
-            });
+        // Get all products
+        const response = await makePrintfulRequest('/store/products');
+        console.log('Printful API response status:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`Printful API error: ${response.status} ${response.statusText}`);
         }
 
-        const syncData = await syncResponse.json();
-        console.log('Successfully fetched sync products. Count:', syncData.result?.length || 0);
-
-        if (!syncData.result || !Array.isArray(syncData.result)) {
-            console.error('Invalid sync products response:', syncData);
-            return res.status(500).json({
-                error: 'Invalid response format',
-                details: 'Expected result array in sync products response'
-            });
-        }
-
-        // Get detailed information for each product
-        const productsWithDetails = await Promise.all(
-            syncData.result.map(async (product) => {
-                try {
-                    const detailResponse = await makePrintfulRequest(`/store/products/${product.id}`);
-                    if (!detailResponse.ok) {
-                        console.error(`Failed to fetch details for product ${product.id}`);
-                        return null;
-                    }
-                    const detailData = await detailResponse.json();
-                    return detailData.result;
-                } catch (error) {
-                    console.error(`Error fetching details for product ${product.id}:`, error);
-                    return null;
-                }
-            })
-        );
-
-        // Filter out any failed product fetches and transform the data
-        const transformedProducts = productsWithDetails
-            .filter(product => product !== null)
-            .map(product => ({
-                id: product.sync_product.id,
-                name: product.sync_product.name,
-                description: product.sync_product.description || '',
-                thumbnail_url: product.sync_product.thumbnail_url,
-                variants: product.sync_variants.map(variant => ({
-                    id: variant.id,
-                    size: variant.size,
-                    color: variant.color,
-                    price: variant.retail_price,
-                    in_stock: variant.in_stock,
-                    preview_url: variant.preview_url,
-                    files: variant.files || [],
-                    mockup_files: variant.mockup_files || []
-                }))
-            }));
-
-        // Cache the response for 5 minutes
-        res.setHeader('Cache-Control', 'public, max-age=300');
-        res.json(transformedProducts);
+        const data = await response.json();
+        res.json(data.result);
     } catch (error) {
         console.error('Error fetching products:', error);
         res.status(500).json({
@@ -140,16 +82,12 @@ router.get('/:id', async (req, res) => {
         const productId = req.params.id;
         console.log(`=== Fetching details for product ${productId} ===`);
         console.log('Environment check:');
-        console.log('- Store ID:', process.env.PRINTFUL_STORE_ID);
-        console.log('- Access token exists:', !!process.env.PRINTFUL_ACCESS_TOKEN);
-        console.log('- Access token:', process.env.PRINTFUL_ACCESS_TOKEN ? `${process.env.PRINTFUL_ACCESS_TOKEN.substring(0, 4)}...${process.env.PRINTFUL_ACCESS_TOKEN.substring(-4)}` : 'missing');
+        console.log('Store ID:', PRINTFUL_STORE_ID);
+        console.log('Access token exists:', !!PRINTFUL_ACCESS_TOKEN);
         
+        // Validate environment variables
         if (!PRINTFUL_ACCESS_TOKEN || !PRINTFUL_STORE_ID) {
-            console.error('Missing configuration:', {
-                hasToken: !!PRINTFUL_ACCESS_TOKEN,
-                hasStoreId: !!PRINTFUL_STORE_ID
-            });
-            throw new Error('Printful API credentials are not fully configured');
+            throw new Error('Printful access token or store ID is missing');
         }
 
         // Get product details
