@@ -258,7 +258,7 @@ app.get('/api/products', async (req, res) => {
         }
 
         // Get products using OAuth token
-        const response = await makePrintfulRequest('/store/products');
+        const response = await makePrintfulRequest('/sync/products');
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -289,16 +289,7 @@ app.get('/api/products', async (req, res) => {
             name: product.name,
             description: product.description || '',
             thumbnail_url: product.thumbnail_url,
-            variants: (product.sync_variants || []).map(variant => ({
-                id: variant.id,
-                size: variant.size,
-                color: variant.color,
-                price: variant.retail_price,
-                in_stock: variant.in_stock,
-                preview_url: variant.preview_url,
-                files: variant.files || [],
-                mockup_files: variant.mockup_files || []
-            }))
+            variants: product.sync_variants || []
         }));
 
         res.setHeader('Cache-Control', 'public, max-age=300');
@@ -590,150 +581,4 @@ app.get('/api/auth/printful', (req, res) => {
     // Construct the authorization URL according to Printful's OAuth format
     const authUrl = `https://www.printful.com/oauth/authorize?` +
         `client_id=${encodeURIComponent(clientId)}&` +
-        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-        `scope=${encodeURIComponent(scopes)}`;
-
-    console.log('=== Printful OAuth Debug ===');
-    console.log('Client ID:', clientId);
-    console.log('Redirect URI:', redirectUri);
-    console.log('Scopes:', scopes);
-    console.log('Authorization URL:', authUrl);
-
-    // Redirect the user to Printful's authorization page
-    res.redirect(authUrl);
-});
-
-app.get('/api/auth/printful-callback', async (req, res) => {
-    const { code } = req.query;
-    console.log('=== Printful OAuth Callback ===');
-    console.log('Received code:', code);
-
-    if (!code) {
-        console.error('No authorization code provided');
-        return res.status(400).json({ error: 'No authorization code provided' });
-    }
-
-    try {
-        // Exchange the authorization code for an access token
-        const tokenResponse = await fetch('https://www.printful.com/oauth/token', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                grant_type: 'authorization_code',
-                client_id: process.env.PRINTFUL_CLIENT_ID,
-                client_secret: process.env.PRINTFUL_CLIENT_SECRET,
-                code: code,
-                redirect_uri: `${process.env.NODE_ENV === 'production' ? 'https://weirdroach.com' : 'http://localhost:3000'}/api/auth/printful-callback`
-            })
-        });
-
-        const tokenData = await tokenResponse.json();
-        console.log('Token response:', tokenData);
-
-        if (!tokenResponse.ok) {
-            console.error('Token exchange failed:', tokenData);
-            return res.status(tokenResponse.status).json({
-                error: 'Failed to exchange authorization code for token',
-                details: tokenData
-            });
-        }
-
-        // For now, we'll just return the token data
-        // In production, you should store this securely
-        res.status(200).json({
-            message: 'Authorization successful',
-            token: tokenData
-        });
-    } catch (error) {
-        console.error('Auth callback error:', error);
-        res.status(500).json({
-            error: 'Internal server error',
-            details: error.message
-        });
-    }
-});
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-    console.error('Error:', err);
-    res.status(500).send('Something broke!');
-});
-
-// Handle 404s
-app.use((req, res) => {
-    console.log('404 for:', req.url);
-    res.status(404).send(`
-        <!DOCTYPE html>
-        <html>
-            <head>
-                <title>Page Not Found</title>
-                <style>
-                    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-                    h1 { color: #333; }
-                    a { color: #0066cc; text-decoration: none; }
-                    a:hover { text-decoration: underline; }
-                </style>
-            </head>
-            <body>
-                <h1>404 - Page Not Found</h1>
-                <p>The page you're looking for doesn't exist.</p>
-                <p>Requested URL: ${req.url}</p>
-                <a href="/">Return to Home</a>
-            </body>
-        </html>
-    `);
-});
-
-// Start local server if not running on Vercel
-if (process.env.NODE_ENV !== 'production') {
-    const server = http.createServer(app);
-    
-    const port = process.env.PORT || 3000;
-    console.log('Starting server...');
-    console.log('Environment:', process.env.NODE_ENV);
-    console.log('Port:', port);
-    
-    // Enhanced error handling
-    server.on('error', (error) => {
-        console.error('Server error:', {
-            code: error.code,
-            message: error.message,
-            stack: error.stack
-        });
-        
-        if (error.code === 'EADDRINUSE') {
-            console.error(`Port ${port} is already in use. Please try a different port.`);
-            process.exit(1);
-        }
-    });
-
-    // Listen on all available network interfaces
-    server.listen(port, '0.0.0.0', () => {
-        const addr = server.address();
-        console.log('Server is running on:', {
-            address: addr.address,
-            port: addr.port,
-            family: addr.family
-        });
-        console.log(`You can access the server at:`);
-        console.log(`- http://localhost:${port}`);
-        console.log(`- http://127.0.0.1:${port}`);
-    });
-
-    // Handle process termination
-    const cleanup = () => {
-        console.log('Server cleanup initiated');
-        server.close(() => {
-            console.log('Server terminated');
-            process.exit(0);
-        });
-    };
-
-    process.on('SIGTERM', cleanup);
-    process.on('SIGINT', cleanup);
-}
-
-// Export the app for Vercel
-export default app; 
+        `redirect_uri=${encodeURIComponent(redirectUri)}&`

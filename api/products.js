@@ -57,8 +57,8 @@ router.get('/', async (req, res) => {
             throw new Error('Printful access token or store ID is missing');
         }
 
-        // Get all products
-        const response = await makePrintfulRequest('/store/products');
+        // Get all sync products
+        const response = await makePrintfulRequest('/sync/products');
         console.log('Printful API response status:', response.status);
         
         if (!response.ok) {
@@ -66,7 +66,34 @@ router.get('/', async (req, res) => {
         }
 
         const data = await response.json();
-        res.json(data.result);
+        
+        // Map products to include all necessary fields
+        const formattedProducts = await Promise.all(data.result.map(async (product) => {
+            try {
+                // Fetch individual product details to get variants
+                const productDetails = await makePrintfulRequest(`/sync/products/${product.id}`);
+                return {
+                    id: product.id,
+                    name: product.name,
+                    description: product.description || '',
+                    thumbnail_url: product.thumbnail_url,
+                    variants: productDetails.result.sync_variants || []
+                };
+            } catch (error) {
+                console.error(`Error fetching variants for product ${product.id}:`, error);
+                return {
+                    id: product.id,
+                    name: product.name,
+                    description: product.description || '',
+                    thumbnail_url: product.thumbnail_url,
+                    variants: []
+                };
+            }
+        }));
+
+        // Cache the response for 5 minutes
+        res.setHeader('Cache-Control', 'public, max-age=300');
+        res.json(formattedProducts);
     } catch (error) {
         console.error('Error fetching products:', error);
         res.status(500).json({
@@ -87,11 +114,12 @@ router.get('/:id', async (req, res) => {
         
         // Validate environment variables
         if (!PRINTFUL_ACCESS_TOKEN || !PRINTFUL_STORE_ID) {
+            console.error('Printful configuration missing');
             throw new Error('Printful access token or store ID is missing');
         }
 
-        // Get product details
-        const response = await makePrintfulRequest(`/store/products/${productId}`);
+        // Get product details using sync_product endpoint
+        const response = await makePrintfulRequest(`/sync/products/${productId}`);
         
         console.log('Printful API response status:', response.status);
         
@@ -113,28 +141,18 @@ router.get('/:id', async (req, res) => {
         const data = await response.json();
         console.log('Successfully fetched product details');
         
-        // Transform the response
-        const product = data.result;
-        const transformedProduct = {
-            id: product.sync_product.id,
-            name: product.sync_product.name,
-            description: product.sync_product.description || '',
-            thumbnail_url: product.sync_product.thumbnail_url,
-            variants: product.sync_variants.map(variant => ({
-                id: variant.id,
-                size: variant.size,
-                color: variant.color,
-                price: variant.retail_price,
-                in_stock: variant.in_stock,
-                preview_url: variant.preview_url,
-                files: variant.files || [],
-                mockup_files: variant.mockup_files || []
-            }))
+        // Format the response to include all necessary fields
+        const formattedProduct = {
+            id: data.result.id,
+            name: data.result.name,
+            description: data.result.description || '',
+            thumbnail_url: data.result.thumbnail_url,
+            variants: data.result.sync_variants || []
         };
 
         // Cache the response for 5 minutes
         res.setHeader('Cache-Control', 'public, max-age=300');
-        res.json(transformedProduct);
+        res.json(formattedProduct);
     } catch (error) {
         console.error('Error fetching product details:', error);
         res.status(500).json({
