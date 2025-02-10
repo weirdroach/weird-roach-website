@@ -1019,4 +1019,52 @@ script {
     display: block;
     max-width: 100%;
     height: auto;
+}
+
+.variant-options {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.color-select,
+.size-select {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.color-select label,
+.size-select label {
+    font-weight: 500;
+    color: #333;
+}
+
+.color-select select,
+.size-select select {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: white;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.color-select select:hover,
+.size-select select:hover {
+    border-color: #999;
+}
+
+.color-select select:focus,
+.size-select select:focus {
+    border-color: #666;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.1);
+}
+
+.no-variants {
+    color: #666;
+    font-style: italic;
+    margin: 1rem 0;
 } 
