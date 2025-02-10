@@ -364,11 +364,11 @@
                 const productElement = document.createElement('article');
                 productElement.className = 'product-item';
                 
-                // Get the first color's variant info
-                const firstColor = product.colors[0];
-                const defaultVariant = firstColor ? product.variants[firstColor] : {};
-                const price = defaultVariant.price || product.retail_price || '0.00';
-                const imageUrl = defaultVariant.preview_url || product.thumbnail_url;
+                // Get the first variant's info
+                const firstVariant = product.sync_variants?.[0] || {};
+                const price = firstVariant.retail_price || product.retail_price || '0.00';
+                const imageUrl = firstVariant.files?.find(f => f.type === 'preview')?.preview_url || 
+                               product.thumbnail_url;
                 
                 productElement.innerHTML = `
                     <div class="product-image-container">
@@ -382,25 +382,12 @@
                         <p class="product-description">${product.description || ''}</p>
                         <p class="product-price">$${price}</p>
                         
-                        ${product.colors.length > 0 ? `
-                            <div class="color-options">
-                                ${product.colors.map((color, index) => {
-                                    const variant = product.variants[color];
-                                    return `
-                                        <div class="color-option ${index === 0 ? 'active' : ''}"
-                                            data-color="${color}"
-                                            style="background-color: ${variant.colorValue}"
-                                            title="${color}">
-                                        </div>
-                                    `;
-                                }).join('')}
-                            </div>
-                            
-                            <div class="size-options">
-                                <select class="size-select" required>
-                                    <option value="">Select Size</option>
-                                    ${defaultVariant.sizes?.map(size => `
-                                        <option value="${size}">${size}</option>
+                        ${product.sync_variants?.length > 0 ? `
+                            <div class="variant-options">
+                                <select class="variant-select" required>
+                                    <option value="">Select Variant</option>
+                                    ${product.sync_variants.map(variant => `
+                                        <option value="${variant.id}">${variant.name}</option>
                                     `).join('')}
                                 </select>
                             </div>
@@ -412,70 +399,47 @@
                     </div>
                 `;
 
-                // Add color option click handlers
-                if (product.colors.length > 0) {
-                    const colorOptions = productElement.querySelectorAll('.color-option');
-                    colorOptions.forEach(option => {
-                        option.addEventListener('click', () => {
-                            const color = option.dataset.color;
-                            const variant = product.variants[color];
-                            
-                            // Update active color
-                            colorOptions.forEach(opt => opt.classList.remove('active'));
-                            option.classList.add('active');
-                            
+                // Add variant selection handler
+                const variantSelect = productElement.querySelector('.variant-select');
+                if (variantSelect) {
+                    variantSelect.addEventListener('change', () => {
+                        const selectedVariantId = variantSelect.value;
+                        const selectedVariant = product.sync_variants.find(v => v.id.toString() === selectedVariantId);
+                        
+                        if (selectedVariant) {
                             // Update price
-                            if (variant.price) {
-                                productElement.querySelector('.product-price').textContent = `$${variant.price}`;
-                            }
+                            productElement.querySelector('.product-price').textContent = `$${selectedVariant.retail_price}`;
                             
                             // Update image if available
-                            if (variant.preview_url) {
+                            const previewFile = selectedVariant.files?.find(f => f.type === 'preview');
+                            if (previewFile?.preview_url) {
                                 const img = productElement.querySelector('.product-image');
-                                img.src = variant.preview_url;
-                                img.alt = `${product.name} - ${color}`;
+                                img.src = previewFile.preview_url;
+                                img.alt = `${product.name} - ${selectedVariant.name}`;
                             }
-                            
-                            // Update size options
-                            const sizeSelect = productElement.querySelector('.size-select');
-                            if (sizeSelect && variant.sizes?.length) {
-                                sizeSelect.innerHTML = `
-                                    <option value="">Select Size</option>
-                                    ${variant.sizes.map(size => `
-                                        <option value="${size}">${size}</option>
-                                    `).join('')}
-                                `;
-                            }
-                        });
+                        }
                     });
-
-                    // Set first color as active
-                    colorOptions[0]?.click();
                 }
 
                 // Add to cart button handler
                 const addToCartButton = productElement.querySelector('.add-to-cart-button');
                 if (addToCartButton) {
                     addToCartButton.addEventListener('click', () => {
-                        const selectedColor = productElement.querySelector('.color-option.active')?.dataset.color;
-                        const selectedSize = productElement.querySelector('.size-select')?.value;
+                        const selectedVariantId = variantSelect?.value;
                         
-                        if (!selectedSize) {
-                            alert('Please select a size');
+                        if (!selectedVariantId) {
+                            alert('Please select a variant');
                             return;
                         }
                         
-                        const variant = product.all_variants.find(v => 
-                            v.color === selectedColor && 
-                            v.size === selectedSize
-                        );
+                        const selectedVariant = product.sync_variants.find(v => v.id.toString() === selectedVariantId);
                         
-                        if (!variant) {
-                            alert('Selected combination is not available');
+                        if (!selectedVariant) {
+                            alert('Selected variant is not available');
                             return;
                         }
                         
-                        addToCart(product, variant, selectedSize);
+                        addToCart(product, selectedVariant, selectedVariant.name);
                     });
                 }
                 
