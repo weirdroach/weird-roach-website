@@ -9,6 +9,8 @@ body {
     background-color: white;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     line-height: 1.6;
+    height: 100vh;
+    overflow: hidden;
 }
 
 /* Header styles */
@@ -62,7 +64,10 @@ header > a img {
 main {
     margin-left: 180px;
     padding: 40px;
-    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Contact container */
@@ -70,6 +75,10 @@ main {
     padding: 7rem 2rem 2rem;
     max-width: 800px;
     margin: 0 auto;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
 }
 
 h1 {
@@ -98,7 +107,7 @@ h1 {
 
 /* Form styles */
 .form-group {
-    margin-bottom: 20px;
+    margin-bottom: 15px;
 }
 
 label {
@@ -125,8 +134,8 @@ textarea:focus {
 }
 
 textarea {
-    resize: vertical;
-    min-height: 120px;
+    resize: none;
+    height: 120px;
 }
 
 .submit-button {
@@ -188,6 +197,13 @@ textarea {
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
+    body {
+        overflow: hidden;
+        height: 100vh;
+        position: fixed;
+        width: 100%;
+    }
+
     header {
         position: fixed;
         width: 100%;
@@ -224,43 +240,21 @@ textarea {
         height: auto;
     }
 
-    .social-links {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        width: 100%;
-        margin: 0;
-        padding: 10px 0;
-        background: white;
-        border-top: 1px solid #eee;
-        z-index: 99;
-    }
-
-    .social-icons {
-        gap: 20px;
-        padding: 5px 0;
-        margin: 0;
-    }
-
-    .social-icon {
-        width: 35px;
-        height: 35px;
-    }
-
     main {
         margin-left: 0;
         padding: 120px 15px 80px;
         height: 100vh;
-        display: flex;
-        flex-direction: column;
+        overflow: hidden;
+        position: fixed;
+        width: 100%;
     }
 
     .contact-container {
         padding: 0;
-        max-width: 100%;
+        height: calc(100vh - 200px);
         display: flex;
         flex-direction: column;
-        height: 100%;
+        justify-content: flex-start;
     }
 
     .contact-intro {
@@ -286,14 +280,36 @@ textarea {
     textarea {
         padding: 8px;
         font-size: 14px;
-        min-height: 80px;
-        max-height: 80px;
+        height: 100px;
     }
 
     .submit-button {
         padding: 10px 20px;
         font-size: 14px;
         margin-top: 5px;
+    }
+
+    .social-links {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        margin: 0;
+        padding: 10px 0;
+        background: white;
+        border-top: 1px solid #eee;
+        z-index: 99;
+    }
+
+    .social-icons {
+        gap: 20px;
+        padding: 5px 0;
+        margin: 0;
+    }
+
+    .social-icon {
+        width: 35px;
+        height: 35px;
     }
 }
 
