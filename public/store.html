@@ -362,13 +362,11 @@
 
             // Define the desired order of products by name
             const productOrder = [
-                "The Synthesis of Man and Nature",
                 "French Elephant Tee",
                 "Acid on the Couch Tee",
                 "Weird Roach Tee",
-                "Weird Roach Tee",
                 "French Elephant Pullover",
-                
+                "The Synthesis of Man and Nature"
             ];
 
             // Sort products according to the defined order, considering color variants
@@ -389,6 +387,10 @@
                     return 0;
                 }
                 
+                // If one of the products is not in the order array, put it at the end
+                if (indexA === -1) return 1;
+                if (indexB === -1) return -1;
+                
                 return indexA - indexB;
             });
 
@@ -406,8 +408,9 @@
                 const price = firstVariant.price || '0.00';
                 let imageUrl = firstVariant.preview_url || product.thumbnail_url;
 
-                // Set white variant as default for Acid on the Couch Tee
-                if (product.name === "Acid on the Couch Tee") {
+                // Set white variant as default for specific products
+                if (product.name === "Acid on the Couch Tee" || 
+                    (product.name === "Weird Roach Tee" && variants.some(v => v.color?.toLowerCase() === 'white'))) {
                     const whiteVariant = variants.find(v => v.color?.toLowerCase() === 'white');
                     if (whiteVariant) {
                         imageUrl = whiteVariant.preview_url || imageUrl;
@@ -431,7 +434,7 @@
                                     ${colors.map(color => `
                                         <button class="color-option" 
                                                 data-color="${color}"
-                                                style="background-color: ${color.toLowerCase()}"
+                                                style="background-color: ${getColorValue(color)}"
                                                 aria-label="${color}">
                                         </button>
                                     `).join('')}
@@ -465,8 +468,10 @@
                     // Color selection handler
                     colorOptions.forEach(colorBtn => {
                         const color = colorBtn.dataset.color;
-                        // Set white as active for Acid on the Couch Tee
-                        if (product.name === "Acid on the Couch Tee" && color.toLowerCase() === 'white') {
+                        // Set white as active for specific products
+                        if ((product.name === "Acid on the Couch Tee" || 
+                             (product.name === "Weird Roach Tee" && variants.some(v => v.color?.toLowerCase() === 'white'))) && 
+                            color.toLowerCase() === 'white') {
                             colorBtn.classList.add('active');
                             selectedColor = color;
                             updateProductDisplay();
@@ -546,6 +551,28 @@
                 
                 grid.appendChild(productElement);
             });
+        }
+
+        // Add a color mapping function before displayProducts
+        function getColorValue(colorName) {
+            const colorMap = {
+                'heather grey': '#D3D3D3',
+                'heather dark grey': '#A9A9A9',
+                'heather navy': '#34495e',
+                'navy': '#000080',
+                'royal': '#4169E1',
+                'sport grey': '#C0C0C0',
+                'dark heather': '#666666',
+                'white': '#FFFFFF',
+                'black': '#000000',
+                'red': '#FF0000',
+                'maroon': '#800000',
+                'kelly': '#4CBB17',
+                'forest': '#228B22',
+                'purple': '#800080',
+                'gold': '#FFD700'
+            };
+            return colorMap[colorName.toLowerCase()] || colorName;
         }
     </script>
 </body>
