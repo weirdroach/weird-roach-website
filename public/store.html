@@ -567,12 +567,35 @@
                 'black': '#000000',
                 'red': '#FF0000',
                 'maroon': '#800000',
-                'kelly': '#4CBB17',
+                'kelly green': '#4CBB17',
+                'forest green': '#228B22',
                 'forest': '#228B22',
                 'purple': '#800080',
-                'gold': '#FFD700'
+                'gold': '#FFD700',
+                'heather': '#D3D3D3',
+                'dark grey': '#A9A9A9',
+                'grey': '#808080',
+                'green': '#228B22'
             };
-            return colorMap[colorName.toLowerCase()] || colorName;
+            
+            // Convert color name to lowercase for case-insensitive matching
+            const normalizedColorName = colorName.toLowerCase();
+            
+            // Check if the exact color name exists in the map
+            if (colorMap[normalizedColorName]) {
+                return colorMap[normalizedColorName];
+            }
+            
+            // Check for partial matches (e.g., if color name contains 'heather' or 'forest')
+            for (const [key, value] of Object.entries(colorMap)) {
+                if (normalizedColorName.includes(key)) {
+                    return value;
+                }
+            }
+            
+            // If no match is found, return the original color name
+            console.log('No color mapping found for:', colorName);
+            return colorName;
         }
     </script>
 </body>
