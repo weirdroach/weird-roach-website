@@ -250,26 +250,36 @@ textarea {
 
     .contact-container {
         padding: 0;
-        height: calc(100vh - 250px);
+        height: calc(100vh - 280px);
         display: flex;
         flex-direction: column;
     }
 
     input {
-        height: 35px;
+        height: 30px;
     }
 
     textarea {
-        height: 70px;
+        height: 60px;
     }
 
     .form-group {
-        margin-bottom: 10px;
+        margin-bottom: 8px;
+    }
+
+    h1 {
+        font-size: 2em;
+        margin-bottom: 15px;
+    }
+
+    .contact-intro {
+        font-size: 0.9em;
+        margin-bottom: 15px;
     }
 
     .submit-button {
-        padding: 10px 20px;
-        margin-top: 10px;
+        padding: 8px 16px;
+        margin-top: 8px;
         font-size: 14px;
     }
 
@@ -311,12 +321,30 @@ textarea {
         padding: 100px 12px 80px;
     }
 
-    .contact-intro {
-        font-size: 0.85em;
+    .contact-container {
+        height: calc(100vh - 290px);
     }
 
-    input, textarea {
-        font-size: 13px;
+    textarea {
+        height: 50px;
+    }
+
+    input {
+        height: 28px;
+    }
+
+    .form-group {
+        margin-bottom: 6px;
+    }
+
+    h1 {
+        font-size: 1.8em;
+        margin-bottom: 12px;
+    }
+
+    .contact-intro {
+        font-size: 0.85em;
+        margin-bottom: 12px;
     }
 
     .social-icons {
@@ -326,14 +354,6 @@ textarea {
     .social-icon {
         width: 30px;
         height: 30px;
-    }
-
-    .contact-container {
-        height: calc(100vh - 260px);
-    }
-
-    textarea {
-        height: 60px;
     }
 
     .submit-button {
