@@ -192,23 +192,25 @@ textarea {
         position: fixed;
         width: 100%;
         height: auto;
+        max-height: 120px;
         border-right: none;
         border-bottom: 1px solid #eee;
-        padding: 5px;
+        padding: 8px;
         background: white;
         z-index: 100;
+        overflow: visible;
     }
 
     header > a img {
-        max-width: 80px;
-        margin-bottom: 5px;
+        max-width: 100px;
+        margin-bottom: 8px;
     }
 
     .nav-links {
         display: flex;
         justify-content: center;
         flex-wrap: wrap;
-        gap: 5px;
+        gap: 8px;
         padding: 0 5px;
     }
 
@@ -218,13 +220,36 @@ textarea {
     }
 
     .nav-links img {
-        max-width: 50px;
+        max-width: 65px;
         height: auto;
+    }
+
+    .social-links {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        margin: 0;
+        padding: 10px 0;
+        background: white;
+        border-top: 1px solid #eee;
+        z-index: 99;
+    }
+
+    .social-icons {
+        gap: 20px;
+        padding: 5px 0;
+        margin: 0;
+    }
+
+    .social-icon {
+        width: 35px;
+        height: 35px;
     }
 
     main {
         margin-left: 0;
-        padding: 80px 15px 0;
+        padding: 120px 15px 80px;
         height: 100vh;
         display: flex;
         flex-direction: column;
@@ -270,22 +295,6 @@ textarea {
         font-size: 14px;
         margin-top: 5px;
     }
-
-    .social-links {
-        margin-top: auto;
-        padding-top: 10px;
-        border-top: 1px solid #eee;
-    }
-
-    .social-icons {
-        gap: 15px;
-        padding: 10px 0;
-    }
-
-    .social-icon {
-        width: 30px;
-        height: 30px;
-    }
 }
 
 /* Additional adjustments for very small screens */
@@ -295,11 +304,11 @@ textarea {
     }
 
     .nav-links img {
-        max-width: 45px;
+        max-width: 70px;
     }
 
     main {
-        padding: 70px 12px 0;
+        padding: 100px 12px 80px;
     }
 
     .contact-intro {
@@ -311,12 +320,12 @@ textarea {
     }
 
     .social-icons {
-        gap: 12px;
+        gap: 15px;
     }
 
     .social-icon {
-        width: 25px;
-        height: 25px;
+        width: 30px;
+        height: 30px;
     }
 }
 
@@ -327,7 +336,7 @@ textarea {
     }
 
     main {
-        padding-top: 120px;
+        padding-top: 140px;
     }
 
     textarea {
