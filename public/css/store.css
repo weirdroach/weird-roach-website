@@ -555,7 +555,7 @@ script {
 
     main {
         margin-left: 0;
-        padding: 130px 10px 20px;
+        padding: 130px 10px 80px;
         min-height: 100%;
         height: auto;
         overflow: visible;
@@ -603,9 +603,11 @@ script {
     }
 
     .size-select select {
-        width: 140px;
-        padding: 8px;
-        font-size: 0.9rem;
+        width: 100%;
+        max-width: 200px;
+        padding: 10px;
+        font-size: 16px; /* Prevent iOS zoom on focus */
+        background-position: right 12px center;
     }
 
     .add-to-cart-button {
@@ -670,12 +672,21 @@ script {
 
     /* Social links adjustments */
     .social-links {
-        margin-top: 30px;
-        padding-top: 20px;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        margin: 0;
+        padding: 10px 0;
+        background: white;
+        border-top: 1px solid #eee;
+        z-index: 99;
     }
 
     .social-icons {
         gap: 20px;
+        padding: 5px 0;
+        margin: 0;
     }
 
     .social-icon {
@@ -699,10 +710,9 @@ script {
         font-size: 0.9rem;
     }
 
-    .size-select select,
-    .add-to-cart-button {
-        width: 120px;
-        font-size: 0.8rem;
+    .size-select select {
+        max-width: 180px;
+        padding: 8px;
     }
 
     .nav-links img {

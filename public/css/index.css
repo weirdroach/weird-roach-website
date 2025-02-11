@@ -121,30 +121,33 @@ main {
 /* Responsive design */
 @media (max-width: 768px) {
     body {
-        padding: 20px;
+        padding: 20px 20px 80px;
+        min-height: 100vh;
+        height: 100vh;
+        overflow: hidden;
     }
 
     header {
-        margin-bottom: 40px;
+        margin-bottom: 20px;
     }
 
     header > a {
-        margin-bottom: 40px;
-        max-width: 400px;
+        margin-bottom: 20px;
+        max-width: 300px;
     }
 
     .nav-links {
-        gap: 20px;
+        gap: 15px;
         flex-wrap: wrap;
     }
 
     .nav-links li {
-        flex: 0 1 140px;
-        max-width: 140px;
+        flex: 0 1 100px;
+        max-width: 100px;
     }
 
     .nav-links img {
-        max-width: 140px;
+        max-width: 100px;
     }
 
     .social-links {
@@ -160,47 +163,51 @@ main {
     }
 
     .social-icons {
-        gap: 20px;
+        gap: 15px;
         padding: 5px 0;
         margin: 0;
     }
 
     .social-icon {
-        width: 35px;
-        height: 35px;
+        width: 30px;
+        height: 30px;
     }
 
     main {
-        padding: 20px 20px 80px;
+        padding: 0;
+        margin-bottom: 60px;
     }
 }
 
 @media (max-width: 480px) {
+    body {
+        padding: 10px 10px 70px;
+    }
+
     header > a {
-        max-width: 300px;
+        max-width: 250px;
+        margin-bottom: 15px;
     }
 
     .nav-links {
-        flex-direction: column;
-        align-items: center;
-        gap: 20px;
+        gap: 12px;
     }
 
     .nav-links li {
-        flex: 0 1 auto;
-        max-width: 120px;
+        flex: 0 1 90px;
+        max-width: 90px;
     }
 
     .nav-links img {
-        max-width: 120px;
+        max-width: 90px;
     }
 
     .social-icons {
-        gap: 20px;
+        gap: 12px;
     }
 
-    .social-icon img {
-        width: 30px;
-        height: 30px;
+    .social-icon {
+        width: 25px;
+        height: 25px;
     }
 } 
