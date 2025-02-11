@@ -284,6 +284,17 @@ textarea {
         border-top: 1px solid #eee;
         z-index: 99;
     }
+
+    .social-icons {
+        gap: 20px;
+        padding: 5px 0;
+        margin: 0;
+    }
+
+    .social-icon {
+        width: 35px;
+        height: 35px;
+    }
 }
 
 /* Additional adjustments for very small screens */
