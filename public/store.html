@@ -362,12 +362,13 @@
 
             // Define the desired order of products by name
             const productOrder = [
+                "The Synthesis of Man and Nature",
                 "French Elephant Tee",
                 "Acid on the Couch Tee",
                 "Weird Roach Tee",
                 "Weird Roach Tee",
                 "French Elephant Pullover",
-                "The Synthesis of Man and Nature"
+                
             ];
 
             // Sort products according to the defined order, considering color variants
@@ -403,7 +404,15 @@
                 // Get the first variant's info for initial display
                 const firstVariant = variants[0] || {};
                 const price = firstVariant.price || '0.00';
-                const imageUrl = firstVariant.preview_url || product.thumbnail_url;
+                let imageUrl = firstVariant.preview_url || product.thumbnail_url;
+
+                // Set white variant as default for Acid on the Couch Tee
+                if (product.name === "Acid on the Couch Tee") {
+                    const whiteVariant = variants.find(v => v.color?.toLowerCase() === 'white');
+                    if (whiteVariant) {
+                        imageUrl = whiteVariant.preview_url || imageUrl;
+                    }
+                }
                 
                 productElement.innerHTML = `
                     <div class="product-image-container">
@@ -455,6 +464,14 @@
                     
                     // Color selection handler
                     colorOptions.forEach(colorBtn => {
+                        const color = colorBtn.dataset.color;
+                        // Set white as active for Acid on the Couch Tee
+                        if (product.name === "Acid on the Couch Tee" && color.toLowerCase() === 'white') {
+                            colorBtn.classList.add('active');
+                            selectedColor = color;
+                            updateProductDisplay();
+                        }
+                        
                         colorBtn.addEventListener('click', () => {
                             // Remove active class from all color options
                             colorOptions.forEach(btn => btn.classList.remove('active'));
@@ -468,21 +485,24 @@
                     function updateProductDisplay() {
                         const selectedSize = sizeSelect.value;
                         
-                        if (selectedColor && selectedSize) {
-                            const selectedVariant = variants.find(v => 
-                                v.color === selectedColor && v.size === selectedSize
-                            );
+                        if (selectedColor) {
+                            // Find variant with matching color, regardless of size
+                            const colorVariant = variants.find(v => v.color === selectedColor);
+                            if (colorVariant && colorVariant.preview_url) {
+                                const img = productElement.querySelector('.product-image');
+                                img.src = colorVariant.preview_url;
+                                img.alt = `${product.name} - ${colorVariant.name}`;
+                            }
                             
-                            if (selectedVariant) {
-                                // Update price
-                                productElement.querySelector('.product-price').textContent = 
-                                    `$${selectedVariant.price}`;
+                            // If both color and size are selected, update the price
+                            if (selectedSize) {
+                                const selectedVariant = variants.find(v => 
+                                    v.color === selectedColor && v.size === selectedSize
+                                );
                                 
-                                // Update image if available
-                                if (selectedVariant.preview_url) {
-                                    const img = productElement.querySelector('.product-image');
-                                    img.src = selectedVariant.preview_url;
-                                    img.alt = `${product.name} - ${selectedVariant.name}`;
+                                if (selectedVariant) {
+                                    productElement.querySelector('.product-price').textContent = 
+                                        `$${selectedVariant.price}`;
                                 }
                             }
                         }
