@@ -358,7 +358,7 @@
         // Display products in the grid
         function displayProducts(products) {
             const grid = document.getElementById('products-grid');
-            grid.innerHTML = ''; // Clear loading message
+            grid.innerHTML = '';
 
             products.forEach(product => {
                 const productElement = document.createElement('article');
@@ -383,24 +383,22 @@
                     </div>
                     <div class="product-details">
                         <h2 class="product-name">${product.name}</h2>
-                        <p class="product-description">${product.description || ''}</p>
                         <p class="product-price">$${price}</p>
                         
                         ${variants.length > 0 ? `
                             <div class="variant-options">
-                                <div class="color-select">
-                                    <label for="color-${product.id}">Color:</label>
-                                    <select id="color-${product.id}" class="color-select" required>
-                                        <option value="">Select Color</option>
-                                        ${colors.map(color => `
-                                            <option value="${color}">${color}</option>
-                                        `).join('')}
-                                    </select>
+                                <div class="color-options">
+                                    ${colors.map(color => `
+                                        <button class="color-option" 
+                                                data-color="${color}"
+                                                style="background-color: ${color.toLowerCase()}"
+                                                aria-label="${color}">
+                                        </button>
+                                    `).join('')}
                                 </div>
                                 
                                 <div class="size-select">
-                                    <label for="size-${product.id}">Size:</label>
-                                    <select id="size-${product.id}" class="size-select" required>
+                                    <select id="size-${product.id}" required>
                                         <option value="">Select Size</option>
                                         ${sizes.map(size => `
                                             <option value="${size}">${size}</option>
@@ -420,11 +418,23 @@
 
                 // Add variant selection handlers
                 if (variants.length > 0) {
-                    const colorSelect = productElement.querySelector(`#color-${product.id}`);
+                    const colorOptions = productElement.querySelectorAll('.color-option');
                     const sizeSelect = productElement.querySelector(`#size-${product.id}`);
+                    let selectedColor = null;
+                    
+                    // Color selection handler
+                    colorOptions.forEach(colorBtn => {
+                        colorBtn.addEventListener('click', () => {
+                            // Remove active class from all color options
+                            colorOptions.forEach(btn => btn.classList.remove('active'));
+                            // Add active class to selected color
+                            colorBtn.classList.add('active');
+                            selectedColor = colorBtn.dataset.color;
+                            updateProductDisplay();
+                        });
+                    });
                     
                     function updateProductDisplay() {
-                        const selectedColor = colorSelect.value;
                         const selectedSize = sizeSelect.value;
                         
                         if (selectedColor && selectedSize) {
@@ -447,17 +457,18 @@
                         }
                     }
 
-                    colorSelect.addEventListener('change', updateProductDisplay);
                     sizeSelect.addEventListener('change', updateProductDisplay);
 
                     // Add to cart button handler
                     const addToCartButton = productElement.querySelector('.add-to-cart-button');
                     addToCartButton.addEventListener('click', () => {
-                        const selectedColor = colorSelect.value;
+                        if (!selectedColor) {
+                            alert('Please select a color');
+                            return;
+                        }
                         const selectedSize = sizeSelect.value;
-                        
-                        if (!selectedColor || !selectedSize) {
-                            alert('Please select both color and size');
+                        if (!selectedSize) {
+                            alert('Please select a size');
                             return;
                         }
                         
