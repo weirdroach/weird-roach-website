@@ -363,12 +363,11 @@
 
             // Define the desired order of products by name
             const productOrder = [
-                "French Elephant Tee",
+                "Phuture Times Tee",
                 "Acid on the Couch Tee",
                 "Weird Roach Tee",
                 "French Elephant Pullover",
-                "Phuture Times Tee",
-                
+                "French Elephant Tee"
             ];
 
             // Sort products according to the defined order, considering color variants
@@ -476,8 +475,13 @@
                         if ((product.name === "Acid on the Couch Tee" && 
                              color.toLowerCase() === 'white') || 
                             (product.name === "Weird Roach Tee" && 
-                             color.toLowerCase() === 'white') || 
-                            (!selectedColor && index === 0)) {
+                             color.toLowerCase() === 'white')) {
+                            colorBtn.classList.add('active');
+                            selectedColor = color;
+                            updateProductDisplay();
+                        } else if (!selectedColor && index === 0 && 
+                                 product.name !== "Acid on the Couch Tee" && 
+                                 product.name !== "Weird Roach Tee") {
                             colorBtn.classList.add('active');
                             selectedColor = color;
                             updateProductDisplay();
