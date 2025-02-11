@@ -568,15 +568,29 @@ script {
     }
 
     .products-grid {
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 15px;
-        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        padding: 15px;
+        overflow-y: auto;
+        overflow-x: hidden;
         height: auto;
-        overflow: visible;
+        -webkit-overflow-scrolling: touch;
     }
 
     .product-item {
-        font-size: 0.9rem;
+        width: 100%;
+        max-width: none;
+        margin: 0;
+    }
+
+    .product-image-container {
+        height: 300px;
+    }
+
+    .product-image {
+        height: 100%;
+        object-fit: contain;
     }
 
     .product-name {
@@ -732,6 +746,10 @@ script {
 
     .checkout-button {
         padding: 10px;
+    }
+
+    .product-image-container {
+        height: 250px;
     }
 }
 
