@@ -363,19 +363,27 @@
 
             // Define the desired order of products by name
             const productOrder = [
-                "Phuture Times Tee",
-                "Acid on the Couch Tee",
-                "Weird Roach Tee",
-                "French Elephant Pullover",
-                "French Elephant Tee"
+                "French Elephant",
+                "Acid on the Couch",
+                "Weird Roach White",
+                "Weird Roach Blk",
+                "French Elephant Pullover ",
+                "Phuture Times "
             ];
 
             // Sort products according to the defined order, considering color variants
             const sortedProducts = [...products].sort((a, b) => {
-                const indexA = productOrder.indexOf(a.name);
-                const indexB = productOrder.indexOf(b.name);
+                // Helper function to find index considering partial matches
+                const findProductIndex = (name) => {
+                    return productOrder.findIndex(orderName => 
+                        name.toLowerCase().includes(orderName.toLowerCase().trim())
+                    );
+                };
+
+                const indexA = findProductIndex(a.name);
+                const indexB = findProductIndex(b.name);
                 
-                // If same product name (like Weird Roach Tee), sort by color
+                // If same product name, sort by color
                 if (indexA === indexB) {
                     const aVariants = a.variants || [];
                     const bVariants = b.variants || [];
@@ -383,7 +391,7 @@
                     const bColor = bVariants[0]?.color?.toLowerCase() || '';
                     
                     // Put white variant first for specific products
-                    if ((a.name === "Acid on the Couch Tee" || a.name === "Weird Roach Tee")) {
+                    if (a.name.includes("Acid on the Couch") || a.name.includes("Weird Roach")) {
                         if (aColor === 'white' && bColor !== 'white') return -1;
                         if (bColor === 'white' && aColor !== 'white') return 1;
                     }
@@ -412,8 +420,8 @@
                 let imageUrl = firstVariant.preview_url || product.thumbnail_url;
 
                 // Set white variant as default for specific products
-                if (product.name === "Acid on the Couch Tee" || 
-                    (product.name === "Weird Roach Tee" && variants.some(v => v.color?.toLowerCase() === 'white'))) {
+                if (product.name === "Acid on the Couch" || 
+                    (product.name === "Weird Roach White" && variants.some(v => v.color?.toLowerCase() === 'white'))) {
                     const whiteVariant = variants.find(v => v.color?.toLowerCase() === 'white');
                     if (whiteVariant) {
                         imageUrl = whiteVariant.preview_url || imageUrl;
@@ -469,19 +477,19 @@
                     let selectedColor = null;
                     
                     // Color selection handler
-                    colorOptions.forEach((colorBtn, index) => {
+                    colorOptions.forEach(colorBtn => {
                         const color = colorBtn.dataset.color;
-                        // Set white as active for specific products, otherwise set first color as active
-                        if ((product.name === "Acid on the Couch Tee" && 
-                             color.toLowerCase() === 'white') || 
-                            (product.name === "Weird Roach Tee" && 
-                             color.toLowerCase() === 'white')) {
+                        
+                        // Set white as default for specific products
+                        if ((product.name.includes("Acid on the Couch") || 
+                             product.name.includes("Weird Roach White")) && 
+                            color.toLowerCase() === 'white') {
                             colorBtn.classList.add('active');
                             selectedColor = color;
                             updateProductDisplay();
-                        } else if (!selectedColor && index === 0 && 
-                                 product.name !== "Acid on the Couch Tee" && 
-                                 product.name !== "Weird Roach Tee") {
+                        } else if (!selectedColor && 
+                                 !product.name.includes("Acid on the Couch") && 
+                                 !product.name.includes("Weird Roach White")) {
                             colorBtn.classList.add('active');
                             selectedColor = color;
                             updateProductDisplay();
