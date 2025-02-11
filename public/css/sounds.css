@@ -25,6 +25,12 @@ header {
 	overflow-x: hidden;
 }
 
+header > a {
+	display: block;
+	width: 100%;
+	text-align: center;
+}
+
 header > a img {
 	max-width: 100%;
 	height: auto;
@@ -125,6 +131,12 @@ main {
 		padding: 8px;
 		background: white;
 		z-index: 100;
+	}
+
+	header > a {
+		display: block;
+		width: 100%;
+		text-align: center;
 	}
 
 	header > a img {

@@ -156,7 +156,7 @@ main {
     display: flex;
     flex-direction: column;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .visually-hidden {
@@ -178,6 +178,7 @@ main {
     margin: 0 auto;
     position: relative;
     z-index: 1;
+    overflow: visible;
 }
 
 /* Store Header */
@@ -510,15 +511,23 @@ script {
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
+    body {
+        overflow-y: auto;
+        height: auto;
+        min-height: 100%;
+    }
+
     header {
         position: fixed;
         width: 100%;
         height: auto;
+        max-height: 120px;
         border-right: none;
         border-bottom: 1px solid #eee;
         padding: 8px;
         background: white;
         z-index: 100;
+        overflow: visible;
     }
 
     header > a img {
@@ -546,17 +555,24 @@ script {
 
     main {
         margin-left: 0;
-        padding: 120px 10px 20px;
+        padding: 130px 10px 20px;
+        min-height: 100%;
+        height: auto;
+        overflow: visible;
     }
 
     .store-container {
         padding: 0;
+        height: auto;
+        overflow: visible;
     }
 
     .products-grid {
         grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
         gap: 15px;
         padding: 10px;
+        height: auto;
+        overflow: visible;
     }
 
     .product-item {
@@ -670,6 +686,10 @@ script {
 
 /* Additional adjustments for very small screens */
 @media (max-width: 360px) {
+    main {
+        padding-top: 120px;
+    }
+
     .products-grid {
         grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
         gap: 10px;
