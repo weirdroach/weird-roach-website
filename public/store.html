@@ -467,12 +467,13 @@
                     let selectedColor = null;
                     
                     // Color selection handler
-                    colorOptions.forEach(colorBtn => {
+                    colorOptions.forEach((colorBtn, index) => {
                         const color = colorBtn.dataset.color;
-                        // Set white as active for specific products
-                        if ((product.name === "Acid on the Couch Tee" || 
-                             (product.name === "Weird Roach Tee" && variants.some(v => v.color?.toLowerCase() === 'white'))) && 
-                            color.toLowerCase() === 'white') {
+                        // Set white as active for specific products, otherwise set first color as active
+                        if (((product.name === "Acid on the Couch Tee" || 
+                             product.name === "Weird Roach Tee") && 
+                            color.toLowerCase() === 'white') || 
+                            (!selectedColor && index === 0)) {
                             colorBtn.classList.add('active');
                             selectedColor = color;
                             updateProductDisplay();
