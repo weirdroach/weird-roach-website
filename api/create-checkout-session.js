@@ -1,7 +1,23 @@
 import Stripe from 'stripe';
+import dotenv from 'dotenv';
 
-export default async function handler(req, res) {
-    // Enable CORS
+// Load environment variables
+dotenv.config();
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+// Get domain based on environment
+const getDomain = () => {
+    if (process.env.VERCEL_URL) {
+        return `https://${process.env.VERCEL_URL}`;
+    }
+    return process.env.NODE_ENV === 'production'
+        ? 'https://weirdroach.com'
+        : 'http://localhost:3000';
+};
+
+// Enable CORS
+const setCorsHeaders = (res) => {
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
@@ -9,10 +25,14 @@ export default async function handler(req, res) {
         'Access-Control-Allow-Headers',
         'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
     );
+};
 
+// Vercel API handler
+export default async function handler(req, res) {
+    // Handle CORS
+    setCorsHeaders(res);
     if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
+        return res.status(200).end();
     }
 
     if (req.method !== 'POST') {
@@ -20,36 +40,38 @@ export default async function handler(req, res) {
     }
 
     try {
-        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
         const { items } = req.body;
-
-        if (!items || !Array.isArray(items)) {
-            return res.status(400).json({ error: 'Invalid request body. Items array is required.' });
+        
+        if (!items || !Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({ error: 'Invalid items array' });
         }
-
-        console.log('Received checkout request:', { items });
 
         const lineItems = items.map(item => ({
             price_data: {
                 currency: 'usd',
                 product_data: {
                     name: item.name,
-                    description: `${item.color} - Size ${item.size}`,
-                    images: item.images || []
+                    images: item.image ? [item.image] : [],
+                    metadata: {
+                        printful_variant_id: item.variant_id
+                    }
                 },
-                unit_amount: Math.round(parseFloat(item.price) * 100)
+                unit_amount: Math.round(parseFloat(item.price) * 100),
             },
-            quantity: item.quantity
+            quantity: item.quantity,
         }));
 
-        const domain = process.env.NODE_ENV === 'production' 
-            ? process.env.VERCEL_URL 
-            : 'http://localhost:3000';
+        const domain = getDomain();
+        console.log('Creating Stripe session with domain:', domain);
 
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
+            line_items: lineItems,
+            mode: 'payment',
+            success_url: `${domain}/checkout-success.html`,
+            cancel_url: `${domain}/store.html`,
             shipping_address_collection: {
-                allowed_countries: ['US', 'CA']
+                allowed_countries: ['US', 'CA', 'GB', 'AU'],
             },
             shipping_options: [
                 {
@@ -59,7 +81,7 @@ export default async function handler(req, res) {
                             amount: 500,
                             currency: 'usd',
                         },
-                        display_name: 'Standard shipping',
+                        display_name: 'Standard Shipping',
                         delivery_estimate: {
                             minimum: {
                                 unit: 'business_day',
@@ -73,16 +95,17 @@ export default async function handler(req, res) {
                     },
                 },
             ],
-            line_items: lineItems,
-            mode: 'payment',
-            success_url: `${domain}/success?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${domain}/cart`
         });
 
-        console.log('Created checkout session:', session.id);
-        res.status(200).json({ sessionId: session.id });
+        return res.json({ 
+            sessionId: session.id,
+            url: session.url 
+        });
     } catch (error) {
-        console.error('Error creating checkout session:', error);
-        res.status(500).json({ error: 'Failed to create checkout session', details: error.message });
+        console.error('Stripe Error:', error);
+        return res.status(500).json({ 
+            error: 'Failed to create checkout session',
+            details: error.message
+        });
     }
 } 

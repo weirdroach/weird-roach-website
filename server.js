@@ -8,6 +8,7 @@ import https from 'https';
 import http from 'http';
 import fs from 'fs';
 import nodemailer from 'nodemailer';
+import productsRouter from './api/products.js';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -83,6 +84,9 @@ app.use(express.json({
     }
 }));
 
+// Use the products router
+app.use('/api/products', productsRouter);
+
 // Modify the domain configuration for Vercel
 const getDomain = () => {
     if (process.env.VERCEL_URL) {
@@ -108,6 +112,9 @@ app.post('/api/create-checkout-session', async (req, res) => {
                 product_data: {
                     name: item.name,
                     images: item.image ? [item.image] : [],
+                    metadata: {
+                        printful_variant_id: item.variant_id
+                    }
                 },
                 unit_amount: Math.round(parseFloat(item.price) * 100),
             },
@@ -189,45 +196,17 @@ app.get('/contact.html', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'contact.html'));
 });
 
-// Printful API configuration
-const PRINTFUL_API_URL = 'https://api.printful.com';
-const PRINTFUL_ACCESS_TOKEN = process.env.PRINTFUL_ACCESS_TOKEN;
-const PRINTFUL_STORE_ID = process.env.PRINTFUL_STORE_ID;
-
-// Function to make authenticated Printful API requests
-const makePrintfulRequest = async (endpoint, options = {}) => {
-    const response = await fetch(`${PRINTFUL_API_URL}${endpoint}`, {
-        ...options,
-        headers: {
-            ...options.headers,
-            'Authorization': `Bearer ${PRINTFUL_ACCESS_TOKEN}`,
-            'X-PF-Store-Id': PRINTFUL_STORE_ID,
-            'Content-Type': 'application/json'
-        }
-    });
-
-    // Log API response for debugging
-    if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Printful API Error:', {
-            endpoint,
-            status: response.status,
-            statusText: response.statusText,
-            error: errorText
-        });
-    }
-
-    return response;
-};
-
 // Test Printful connection on startup
 const testPrintfulConnection = async () => {
     try {
-        console.log('\n=== Testing Printful API Connection ===');
-        console.log('Store ID:', PRINTFUL_STORE_ID);
-        console.log('Access token exists:', !!PRINTFUL_ACCESS_TOKEN);
-
-        const response = await makePrintfulRequest('/store');
+        const response = await fetch('https://api.printful.com/store', {
+            headers: {
+                'Authorization': `Bearer ${process.env.PRINTFUL_ACCESS_TOKEN}`,
+                'X-PF-Store-Id': process.env.PRINTFUL_STORE_ID,
+                'Content-Type': 'application/json'
+            }
+        });
+        
         if (!response.ok) {
             throw new Error(`API test failed with status ${response.status}`);
         }
@@ -245,64 +224,6 @@ const testPrintfulConnection = async () => {
 
 // Run Printful connection test on startup
 testPrintfulConnection();
-
-// Endpoint to fetch products from Printful
-app.get('/api/products', async (req, res) => {
-    try {
-        console.log('=== Printful API Debug ===');
-        console.log('Fetching products from Printful...');
-        console.log('Access token exists:', !!PRINTFUL_ACCESS_TOKEN);
-        
-        if (!PRINTFUL_ACCESS_TOKEN) {
-            throw new Error('Printful access token is missing');
-        }
-
-        // Get products using OAuth token
-        const response = await makePrintfulRequest('/sync/products');
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Printful API Error:', {
-                status: response.status,
-                statusText: response.statusText,
-                body: errorText
-            });
-            
-            return res.status(response.status).json({
-                error: 'Failed to fetch products from Printful',
-                status: response.status,
-                details: errorText
-            });
-        }
-
-        const data = await response.json();
-        console.log('Successfully fetched products from Printful');
-        console.log('Number of products:', data.result?.length || 0);
-        
-        if (!data.result || !Array.isArray(data.result)) {
-            throw new Error('Invalid response format from Printful API');
-        }
-
-        // Transform and send the response
-        const transformedProducts = data.result.map(product => ({
-            id: product.id,
-            name: product.name,
-            description: product.description || '',
-            thumbnail_url: product.thumbnail_url,
-            variants: product.sync_variants || []
-        }));
-
-        res.setHeader('Cache-Control', 'public, max-age=300');
-        res.json(transformedProducts);
-        
-    } catch (error) {
-        console.error('Error in /api/products:', error);
-        res.status(500).json({
-            error: 'Internal server error',
-            message: error.message
-        });
-    }
-});
 
 // Email configuration
 const transporter = nodemailer.createTransport({
@@ -367,6 +288,8 @@ const testEmail = async () => {
             response: testResult.response,
             envelope: testResult.envelope
         });
+        
+        return true; // Return true if email test succeeds
     } catch (error) {
         console.error('\n=== Email Test Error ===');
         console.error('Error details:', {
@@ -386,11 +309,10 @@ const testEmail = async () => {
             console.error('3. 2-factor authentication is enabled');
             console.error('4. App password has proper permissions');
         }
+        
+        throw error; // Re-throw the error to be caught by the server startup
     }
 };
-
-// Run test email on startup
-testEmail();
 
 // Stripe webhook endpoint
 app.post('/webhook', async (req, res) => {
@@ -446,46 +368,50 @@ app.post('/webhook', async (req, res) => {
                         city: session.shipping_details.address.city,
                         state_code: session.shipping_details.address.state,
                         country_code: session.shipping_details.address.country,
-                        zip: session.shipping_details.address.postal_code
+                        zip: session.shipping_details.address.postal_code,
+                        email: session.customer_details.email,
+                        phone: session.customer_details.phone || ''
                     },
-                    items: sessionWithLineItems.line_items.data.map(item => {
-                        // Parse the variant info from the item description (e.g., "French Elephant Tee - Black (M)")
-                        const [productName, variantInfo] = item.description.split(' - ');
-                        const [color, size] = variantInfo.replace('(', '').replace(')', '').split(' ');
-                        
-                        return {
-                            sync_variant_id: item.price.product.metadata.printful_variant_id,
-                            quantity: item.quantity,
-                            retail_price: (item.amount_total / 100).toString()
-                        };
-                    })
+                    items: sessionWithLineItems.line_items.data.map(item => ({
+                        sync_variant_id: item.price.product.metadata.printful_variant_id,
+                        quantity: item.quantity,
+                        retail_price: (item.amount_total / 100).toString()
+                    })),
+                    retail_costs: {
+                        subtotal: (sessionWithLineItems.amount_subtotal / 100).toString(),
+                        shipping: (sessionWithLineItems.total_details.amount_shipping / 100).toString(),
+                        tax: (sessionWithLineItems.total_details.amount_tax / 100).toString(),
+                        total: (sessionWithLineItems.amount_total / 100).toString()
+                    },
+                    gift: null,
+                    packing_slip: {
+                        email: process.env.EMAIL_USER,
+                        phone: '',
+                        message: 'Thank you for your order!'
+                    }
                 };
 
-                try {
-                    const printfulResponse = await fetch(`${PRINTFUL_API_URL}/orders`, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${PRINTFUL_ACCESS_TOKEN}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(printfulOrder)
-                    });
+                // Create the order in Printful
+                const printfulResponse = await fetch('https://api.printful.com/orders', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${process.env.PRINTFUL_ACCESS_TOKEN}`,
+                        'X-PF-Store-Id': process.env.PRINTFUL_STORE_ID,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(printfulOrder)
+                });
 
-                    if (!printfulResponse.ok) {
-                        const errorText = await printfulResponse.text();
-                        console.error('Printful order creation failed:', errorText);
-                        throw new Error(`Failed to create Printful order: ${errorText}`);
-                    }
-
-                    const printfulResult = await printfulResponse.json();
-                    console.log('Printful order created successfully:', printfulResult);
-                } catch (printfulError) {
-                    console.error('Error creating Printful order:', printfulError);
-                    // Continue with email sending even if Printful order creation fails
+                if (!printfulResponse.ok) {
+                    console.error('Error creating Printful order:', await printfulResponse.text());
+                    return res.status(500).json({ error: 'Failed to create Printful order' });
                 }
 
+                const printfulResult = await printfulResponse.json();
+                console.log('Created Printful order:', printfulResult.result.id);
+
                 // Format shipping address
-                const shippingAddress = session.shipping_details?.address;
+                const shippingAddress = session.shipping_details.address;
                 const formattedAddress = shippingAddress ? `
                     ${session.shipping_details.name}<br>
                     ${shippingAddress.line1}<br>
@@ -494,7 +420,7 @@ app.post('/webhook', async (req, res) => {
                     ${shippingAddress.country}
                 ` : 'No shipping address provided';
 
-                // Create email content with improved formatting
+                // Create email content
                 const items = sessionWithLineItems.line_items.data.map(item => 
                     `${item.quantity}x ${item.description} - $${(item.amount_total / 100).toFixed(2)}`
                 ).join('\n');
@@ -514,15 +440,13 @@ app.post('/webhook', async (req, res) => {
 
                 console.log('\n=== Sending Order Confirmation Email ===');
                 console.log('Customer email:', session.customer_details?.email);
-                console.log('Email content preview:', emailContent.substring(0, 200) + '...');
                 
-                // Send the email using the existing transporter
                 const emailResult = await transporter.sendMail({
                     from: `"Weird Roach Store" <${process.env.EMAIL_USER}>`,
                     to: session.customer_details?.email,
                     subject: 'Order Confirmation - Weird Roach Store',
                     html: emailContent,
-                    text: `Order Details:\n\n${items}\n\nTotal: $${(sessionWithLineItems.amount_total / 100).toFixed(2)}\n\nShipping to:\n${session.shipping_details?.name}\n${shippingAddress?.line1}\n${shippingAddress?.line2 ? shippingAddress.line2 + '\n' : ''}${shippingAddress?.city}, ${shippingAddress?.state} ${shippingAddress?.postal_code}\n${shippingAddress?.country}\n\nWe'll send you another email when your order ships.\n\nThanks for the support!`,
+                    text: `Order Details:\n\n${items}\n\nTotal: $${(sessionWithLineItems.amount_total / 100).toFixed(2)}\n\nShipping to:\n${session.shipping_details.name}\n${shippingAddress?.line1}\n${shippingAddress?.line2 ? shippingAddress.line2 + '\n' : ''}${shippingAddress?.city}, ${shippingAddress?.state} ${shippingAddress?.postal_code}\n${shippingAddress?.country}\n\nWe'll send you another email when your order ships.\n\nThanks for the support!`,
                     headers: {
                         'X-Entity-Ref-ID': session.id,
                         'X-Mailer': 'Weird Roach Store Mailer',
@@ -539,46 +463,49 @@ app.post('/webhook', async (req, res) => {
                     response: emailResult.response,
                     envelope: emailResult.envelope
                 });
-            } catch (emailError) {
-                console.error('\n=== Order Confirmation Email Error ===');
-                console.error('Error details:', {
-                    name: emailError.name,
-                    message: emailError.message,
-                    code: emailError.code,
-                    command: emailError.command,
-                    response: emailError.response,
-                    responseCode: emailError.responseCode,
-                    stack: emailError.stack
-                });
-                throw emailError;
+            } catch (error) {
+                console.error('Error processing order:', error);
+                return res.status(500).json({ error: 'Failed to process order' });
             }
         }
 
-        res.status(200).json({received: true, type: event.type});
-    } catch (err) {
-        console.error('\n=== Webhook Error ===');
-        console.error('Error details:', {
-            name: err.name,
-            message: err.message,
-            stack: err.stack
-        });
-        res.status(400).json({received: true, error: err.message});
+        res.json({ received: true });
+    } catch (error) {
+        console.error('Webhook error:', error);
+        res.status(500).json({ error: 'Webhook handler failed', details: error.message });
     }
 });
 
-// Mount API routes
-import productsRouter from './api/products.js';
-app.use('/api/products', productsRouter);
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error('Error:', err);
+    res.status(500).send('Something broke!');
+});
 
-// Mount auth routes
-app.get('/api/auth/printful', (req, res) => {
-    const clientId = process.env.PRINTFUL_CLIENT_ID;
-    // Define the redirect URI based on environment
-    const redirectUri = `${process.env.NODE_ENV === 'production' ? 'https://weirdroach.com' : 'http://localhost:3000'}/api/auth/printful-callback`;
-    // Define the required scopes for your application
-    const scopes = 'orders products files webhooks';
+// Handle 404s
+app.use((req, res) => {
+    console.log('404 for:', req.url);
+    res.status(404).send(`
+        <!DOCTYPE html>
+        <html>
+            <head>
+                <title>Page Not Found</title>
+                <style>
+                    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+                    h1 { color: #333; }
+                    a { color: #0066cc; text-decoration: none; }
+                    a:hover { text-decoration: underline; }
+                </style>
+            </head>
+            <body>
+                <h1>404 - Page Not Found</h1>
+                <p>The page you're looking for doesn't exist.</p>
+                <p>Requested URL: ${req.url}</p>
+                <a href="/">Return to Home</a>
+            </body>
+        </html>
+    `);
+});
 
-    // Construct the authorization URL according to Printful's OAuth format
-    const authUrl = `https://www.printful.com/oauth/authorize?` +
-        `client_id=${encodeURIComponent(clientId)}&` +
-        `redirect_uri=${encodeURIComponent(redirectUri)}&`
+// Remove local server startup code and export for Vercel
+export default app;

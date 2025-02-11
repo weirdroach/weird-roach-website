@@ -1,4 +1,3 @@
-import express from 'express';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 
@@ -10,8 +9,6 @@ console.log('=== API Route Environment Variables ===');
 console.log('Store ID:', process.env.PRINTFUL_STORE_ID);
 console.log('Access token exists:', !!process.env.PRINTFUL_ACCESS_TOKEN);
 console.log('====================================');
-
-const router = express.Router();
 
 // Printful API configuration
 const PRINTFUL_API_URL = 'https://api.printful.com';
@@ -44,33 +41,74 @@ const makePrintfulRequest = async (endpoint, options = {}) => {
     return response;
 };
 
-// GET /api/products
-router.get('/', async (req, res) => {
+// Enable CORS
+const setCorsHeaders = (res) => {
+    res.setHeader('Access-Control-Allow-Credentials', true);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
+    res.setHeader(
+        'Access-Control-Allow-Headers',
+        'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    );
+};
+
+// Vercel API handler
+export default async function handler(req, res) {
+    // Handle CORS
+    setCorsHeaders(res);
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+
+    // Only allow GET requests
+    if (req.method !== 'GET') {
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
     try {
-        console.log('=== Fetching all products ===');
-        console.log('Environment check:');
-        console.log('Store ID:', PRINTFUL_STORE_ID);
-        console.log('Access token exists:', !!PRINTFUL_ACCESS_TOKEN);
-        
         // Validate environment variables
         if (!PRINTFUL_ACCESS_TOKEN || !PRINTFUL_STORE_ID) {
             throw new Error('Printful access token or store ID is missing');
         }
 
-        // Get all sync products
+        // Handle product ID route
+        const productId = req.query.id;
+        if (productId) {
+            // Get specific product details
+            const response = await makePrintfulRequest(`/sync/products/${productId}`);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                return res.status(response.status).json({
+                    error: 'Failed to fetch product details from Printful',
+                    status: response.status,
+                    details: errorText
+                });
+            }
+
+            const data = await response.json();
+            const formattedProduct = {
+                id: data.result.id,
+                name: data.result.name,
+                description: data.result.description || '',
+                thumbnail_url: data.result.thumbnail_url,
+                variants: data.result.sync_variants || []
+            };
+
+            // Cache the response for 5 minutes
+            res.setHeader('Cache-Control', 'public, max-age=300');
+            return res.json(formattedProduct);
+        }
+
+        // Get all products
         const response = await makePrintfulRequest('/sync/products');
-        console.log('Printful API response status:', response.status);
-        
         if (!response.ok) {
             throw new Error(`Printful API error: ${response.status} ${response.statusText}`);
         }
 
         const data = await response.json();
-        
-        // Map products to include all necessary fields
         const formattedProducts = await Promise.all(data.result.map(async (product) => {
             try {
-                // Fetch individual product details to get variants
                 const productDetails = await makePrintfulRequest(`/sync/products/${product.id}`);
                 return {
                     id: product.id,
@@ -93,74 +131,13 @@ router.get('/', async (req, res) => {
 
         // Cache the response for 5 minutes
         res.setHeader('Cache-Control', 'public, max-age=300');
-        res.json(formattedProducts);
+        return res.json(formattedProducts);
     } catch (error) {
-        console.error('Error fetching products:', error);
-        res.status(500).json({
-            error: 'Internal server error',
-            message: error.message
-        });
-    }
-});
-
-// GET /api/products/:id
-router.get('/:id', async (req, res) => {
-    try {
-        const productId = req.params.id;
-        console.log(`=== Fetching details for product ${productId} ===`);
-        console.log('Environment check:');
-        console.log('Store ID:', PRINTFUL_STORE_ID);
-        console.log('Access token exists:', !!PRINTFUL_ACCESS_TOKEN);
-        
-        // Validate environment variables
-        if (!PRINTFUL_ACCESS_TOKEN || !PRINTFUL_STORE_ID) {
-            console.error('Printful configuration missing');
-            throw new Error('Printful access token or store ID is missing');
-        }
-
-        // Get product details using sync_product endpoint
-        const response = await makePrintfulRequest(`/sync/products/${productId}`);
-        
-        console.log('Printful API response status:', response.status);
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Printful API Error:', {
-                status: response.status,
-                statusText: response.statusText,
-                body: errorText
-            });
-            
-            return res.status(response.status).json({
-                error: 'Failed to fetch product details from Printful',
-                status: response.status,
-                details: errorText
-            });
-        }
-
-        const data = await response.json();
-        console.log('Successfully fetched product details');
-        
-        // Format the response to include all necessary fields
-        const formattedProduct = {
-            id: data.result.id,
-            name: data.result.name,
-            description: data.result.description || '',
-            thumbnail_url: data.result.thumbnail_url,
-            variants: data.result.sync_variants || []
-        };
-
-        // Cache the response for 5 minutes
-        res.setHeader('Cache-Control', 'public, max-age=300');
-        res.json(formattedProduct);
-    } catch (error) {
-        console.error('Error fetching product details:', error);
-        res.status(500).json({
+        console.error('Error in products API:', error);
+        return res.status(500).json({
             error: 'Internal server error',
             message: error.message,
             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
-});
-
-export default router; 
+} 
