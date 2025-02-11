@@ -360,7 +360,23 @@
             const grid = document.getElementById('products-grid');
             grid.innerHTML = '';
 
-            products.forEach(product => {
+            // Define the desired order of products by name
+            const productOrder = [
+                "French Elephant Tee",
+                "Acid on the Couch Tee",
+                "Weird Roach Tee",
+                "French Elephant Pullover",
+                "The Synthesis of Man and Nature"
+            ];
+
+            // Sort products according to the defined order
+            const sortedProducts = [...products].sort((a, b) => {
+                const indexA = productOrder.indexOf(a.name);
+                const indexB = productOrder.indexOf(b.name);
+                return indexA - indexB;
+            });
+
+            sortedProducts.forEach(product => {
                 const productElement = document.createElement('article');
                 productElement.className = 'product-item';
                 
