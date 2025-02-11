@@ -367,7 +367,8 @@
                 "Acid on the Couch Tee",
                 "Weird Roach Tee",
                 "French Elephant Pullover",
-                "The Synthesis of Man and Nature"
+                "Phuture Times Tee",
+                
             ];
 
             // Sort products according to the defined order, considering color variants
@@ -382,9 +383,11 @@
                     const aColor = aVariants[0]?.color?.toLowerCase() || '';
                     const bColor = bVariants[0]?.color?.toLowerCase() || '';
                     
-                    // Put black variant first
-                    if (aColor === 'black' && bColor !== 'black') return -1;
-                    if (bColor === 'black' && aColor !== 'black') return 1;
+                    // Put white variant first for specific products
+                    if ((a.name === "Acid on the Couch Tee" || a.name === "Weird Roach Tee")) {
+                        if (aColor === 'white' && bColor !== 'white') return -1;
+                        if (bColor === 'white' && aColor !== 'white') return 1;
+                    }
                     return 0;
                 }
                 
@@ -470,9 +473,10 @@
                     colorOptions.forEach((colorBtn, index) => {
                         const color = colorBtn.dataset.color;
                         // Set white as active for specific products, otherwise set first color as active
-                        if (((product.name === "Acid on the Couch Tee" || 
-                             product.name === "Weird Roach Tee") && 
-                            color.toLowerCase() === 'white') || 
+                        if ((product.name === "Acid on the Couch Tee" && 
+                             color.toLowerCase() === 'white') || 
+                            (product.name === "Weird Roach Tee" && 
+                             color.toLowerCase() === 'white') || 
                             (!selectedColor && index === 0)) {
                             colorBtn.classList.add('active');
                             selectedColor = color;
