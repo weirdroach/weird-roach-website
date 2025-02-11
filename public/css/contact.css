@@ -72,13 +72,12 @@ main {
 
 /* Contact container */
 .contact-container {
-    padding: 7rem 2rem 2rem;
+    padding: 2rem 2rem;
     max-width: 800px;
     margin: 0 auto;
     height: 100%;
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
 }
 
 h1 {
@@ -89,7 +88,7 @@ h1 {
 
 .contact-intro {
     font-size: 1.1em;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
     color: #666;
 }
 
@@ -107,7 +106,7 @@ h1 {
 
 /* Form styles */
 .form-group {
-    margin-bottom: 15px;
+    margin-bottom: 20px;
 }
 
 label {
@@ -127,15 +126,13 @@ textarea {
     transition: border-color 0.3s ease;
 }
 
-input:focus,
-textarea:focus {
-    outline: none;
-    border-color: #4A90E2;
+input {
+    height: 45px;
 }
 
 textarea {
     resize: none;
-    height: 120px;
+    height: 150px;
 }
 
 .submit-button {
@@ -147,6 +144,8 @@ textarea {
     font-size: 16px;
     cursor: pointer;
     transition: background-color 0.3s ease;
+    width: auto;
+    display: inline-block;
 }
 
 .submit-button:hover {
@@ -155,7 +154,7 @@ textarea {
 
 /* Social media section */
 .social-links {
-    margin-top: 60px;
+    margin-top: auto;
     text-align: center;
     padding-top: 30px;
     border-top: 1px solid #eee;
@@ -251,42 +250,27 @@ textarea {
 
     .contact-container {
         padding: 0;
-        height: calc(100vh - 200px);
+        height: calc(100vh - 220px);
         display: flex;
         flex-direction: column;
-        justify-content: flex-start;
-    }
-
-    .contact-intro {
-        font-size: 0.9em;
-        margin: 10px 0;
-    }
-
-    .form-group {
-        margin-bottom: 10px;
-    }
-
-    label {
-        margin-bottom: 4px;
-        font-size: 0.9em;
     }
 
     input {
-        padding: 8px;
-        font-size: 14px;
         height: 35px;
     }
 
     textarea {
-        padding: 8px;
-        font-size: 14px;
-        height: 100px;
+        height: 80px;
+    }
+
+    .form-group {
+        margin-bottom: 12px;
     }
 
     .submit-button {
         padding: 10px 20px;
-        font-size: 14px;
         margin-top: 5px;
+        font-size: 14px;
     }
 
     .social-links {
@@ -299,17 +283,6 @@ textarea {
         background: white;
         border-top: 1px solid #eee;
         z-index: 99;
-    }
-
-    .social-icons {
-        gap: 20px;
-        padding: 5px 0;
-        margin: 0;
-    }
-
-    .social-icon {
-        width: 35px;
-        height: 35px;
     }
 }
 
@@ -342,6 +315,19 @@ textarea {
     .social-icon {
         width: 30px;
         height: 30px;
+    }
+
+    .contact-container {
+        height: calc(100vh - 230px);
+    }
+
+    textarea {
+        height: 70px;
+    }
+
+    .submit-button {
+        padding: 8px 16px;
+        font-size: 13px;
     }
 }
 
