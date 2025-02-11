@@ -138,13 +138,19 @@ main {
         max-width: 140px;
     }
 
-    .social-icons {
-        gap: 25px;
+    .social-links {
+        margin-top: 30px;
+        padding-top: 20px;
     }
 
-    .social-icon img {
-        width: 35px;
-        height: 35px;
+    .social-icons {
+        gap: 12px;
+        padding: 15px 0;
+    }
+
+    .social-icon {
+        width: 30px;
+        height: 30px;
     }
 }
 
