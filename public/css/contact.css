@@ -250,7 +250,7 @@ textarea {
 
     .contact-container {
         padding: 0;
-        height: calc(100vh - 220px);
+        height: calc(100vh - 250px);
         display: flex;
         flex-direction: column;
     }
@@ -260,16 +260,16 @@ textarea {
     }
 
     textarea {
-        height: 80px;
+        height: 70px;
     }
 
     .form-group {
-        margin-bottom: 12px;
+        margin-bottom: 10px;
     }
 
     .submit-button {
         padding: 10px 20px;
-        margin-top: 5px;
+        margin-top: 10px;
         font-size: 14px;
     }
 
@@ -329,11 +329,11 @@ textarea {
     }
 
     .contact-container {
-        height: calc(100vh - 230px);
+        height: calc(100vh - 260px);
     }
 
     textarea {
-        height: 70px;
+        height: 60px;
     }
 
     .submit-button {
