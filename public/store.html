@@ -99,6 +99,14 @@
         </div>
     </main>
 
+    <!-- Add Modal for enlarged product images -->
+    <div class="product-modal" id="product-modal">
+        <div class="modal-content">
+            <span class="modal-close">&times;</span>
+            <img id="modal-image" src="" alt="">
+        </div>
+    </div>
+
     <script>
         // Loading state management
         function showLoadingState() {
@@ -433,7 +441,8 @@
                         <img src="${imageUrl}" 
                              alt="${product.name}" 
                              class="product-image" 
-                             onerror="this.src='assets/placeholder.png'">
+                             onerror="this.src='assets/placeholder.png'"
+                             onclick="openModal(this.src, this.alt)">
                     </div>
                     <div class="product-details">
                         <h2 class="product-name">${product.name}</h2>
@@ -636,6 +645,40 @@
             console.log('No color mapping found for:', colorName);
             return normalizedColorName;
         }
+
+        // Add modal functionality
+        const modal = document.getElementById('product-modal');
+        const modalImg = document.getElementById('modal-image');
+        const closeBtn = document.querySelector('.modal-close');
+
+        function openModal(src, alt) {
+            modal.style.display = "flex";
+            modalImg.src = src;
+            modalImg.alt = alt;
+            document.body.style.overflow = 'hidden'; // Prevent scrolling when modal is open
+        }
+
+        // Close modal when clicking the close button
+        closeBtn.onclick = function() {
+            modal.style.display = "none";
+            document.body.style.overflow = 'auto'; // Restore scrolling
+        }
+
+        // Close modal when clicking outside the image
+        modal.onclick = function(event) {
+            if (event.target === modal) {
+                modal.style.display = "none";
+                document.body.style.overflow = 'auto'; // Restore scrolling
+            }
+        }
+
+        // Close modal with escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape' && modal.style.display === "flex") {
+                modal.style.display = "none";
+                document.body.style.overflow = 'auto'; // Restore scrolling
+            }
+        });
     </script>
 </body>
 </html> 
