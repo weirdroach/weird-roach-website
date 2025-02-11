@@ -241,7 +241,7 @@ textarea {
 
     main {
         margin-left: 0;
-        padding: 100px 15px 80px;
+        padding: 130px 15px 80px;
         height: 100vh;
         overflow: hidden;
         position: fixed;
@@ -249,8 +249,8 @@ textarea {
     }
 
     .contact-container {
-        padding: 0;
-        height: calc(100vh - 280px);
+        padding: 10px 0 0;
+        height: calc(100vh - 290px);
         display: flex;
         flex-direction: column;
     }
@@ -318,7 +318,7 @@ textarea {
     }
 
     main {
-        padding: 85px 12px 80px;
+        padding: 115px 12px 80px;
     }
 
     .contact-container {
