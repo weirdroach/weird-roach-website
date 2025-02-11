@@ -365,15 +365,14 @@
                 productElement.className = 'product-item';
                 
                 // Get unique colors and sizes from variants
-                const variants = product.sync_variants || [];
-                const colors = [...new Set(variants.map(v => v.name.split(' - ')[0]))];
-                const sizes = [...new Set(variants.map(v => v.name.split(' - ')[1]))];
+                const variants = product.variants || [];
+                const colors = [...new Set(variants.map(v => v.color).filter(Boolean))];
+                const sizes = [...new Set(variants.map(v => v.size).filter(Boolean))];
                 
                 // Get the first variant's info for initial display
                 const firstVariant = variants[0] || {};
-                const price = firstVariant.retail_price || product.retail_price || '0.00';
-                const imageUrl = firstVariant.files?.find(f => f.type === 'preview')?.preview_url || 
-                               product.thumbnail_url;
+                const price = firstVariant.price || '0.00';
+                const imageUrl = firstVariant.preview_url || product.thumbnail_url;
                 
                 productElement.innerHTML = `
                     <div class="product-image-container">
@@ -412,7 +411,9 @@
                         ` : '<p class="no-variants">No variants available</p>'}
                         
                         <div class="product-actions">
-                            <button class="add-to-cart-button">Add to Cart</button>
+                            <button class="add-to-cart-button" ${variants.length === 0 ? 'disabled' : ''}>
+                                Add to Cart
+                            </button>
                         </div>
                     </div>
                 `;
@@ -428,19 +429,18 @@
                         
                         if (selectedColor && selectedSize) {
                             const selectedVariant = variants.find(v => 
-                                v.name === `${selectedColor} - ${selectedSize}`
+                                v.color === selectedColor && v.size === selectedSize
                             );
                             
                             if (selectedVariant) {
                                 // Update price
                                 productElement.querySelector('.product-price').textContent = 
-                                    `$${selectedVariant.retail_price}`;
+                                    `$${selectedVariant.price}`;
                                 
                                 // Update image if available
-                                const previewFile = selectedVariant.files?.find(f => f.type === 'preview');
-                                if (previewFile?.preview_url) {
+                                if (selectedVariant.preview_url) {
                                     const img = productElement.querySelector('.product-image');
-                                    img.src = previewFile.preview_url;
+                                    img.src = selectedVariant.preview_url;
                                     img.alt = `${product.name} - ${selectedVariant.name}`;
                                 }
                             }
@@ -462,7 +462,7 @@
                         }
                         
                         const selectedVariant = variants.find(v => 
-                            v.name === `${selectedColor} - ${selectedSize}`
+                            v.color === selectedColor && v.size === selectedSize
                         );
                         
                         if (!selectedVariant) {
@@ -470,7 +470,15 @@
                             return;
                         }
                         
-                        addToCart(product, selectedVariant, selectedVariant.name);
+                        addToCart({
+                            name: product.name,
+                            variant_id: selectedVariant.id,
+                            color: selectedVariant.color,
+                            size: selectedVariant.size,
+                            price: selectedVariant.price,
+                            quantity: 1,
+                            image: selectedVariant.preview_url
+                        });
                     });
                 }
                 

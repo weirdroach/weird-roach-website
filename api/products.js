@@ -110,12 +110,39 @@ export default async function handler(req, res) {
         const formattedProducts = await Promise.all(data.result.map(async (product) => {
             try {
                 const productDetails = await makePrintfulRequest(`/sync/products/${product.id}`);
+                const detailsData = await productDetails.json();
+                
+                // Add additional validation and logging
+                console.log(`Product ${product.id} details:`, JSON.stringify(detailsData, null, 2));
+                
+                if (!productDetails.ok || !detailsData.result) {
+                    console.error(`Invalid product details for ${product.id}:`, detailsData);
+                    return {
+                        id: product.id,
+                        name: product.name,
+                        description: product.description || '',
+                        thumbnail_url: product.thumbnail_url,
+                        variants: []
+                    };
+                }
+
+                // Extract variants with proper validation
+                const variants = detailsData.result.sync_variants || [];
+                console.log(`Found ${variants.length} variants for product ${product.id}`);
+
                 return {
                     id: product.id,
                     name: product.name,
                     description: product.description || '',
                     thumbnail_url: product.thumbnail_url,
-                    variants: productDetails.result.sync_variants || []
+                    variants: variants.map(variant => ({
+                        id: variant.id,
+                        name: variant.name,
+                        price: variant.retail_price,
+                        size: variant.size || '',
+                        color: variant.color || '',
+                        preview_url: variant.files?.find(f => f.type === 'preview')?.preview_url || product.thumbnail_url
+                    }))
                 };
             } catch (error) {
                 console.error(`Error fetching variants for product ${product.id}:`, error);
@@ -129,9 +156,13 @@ export default async function handler(req, res) {
             }
         }));
 
+        // Filter out products with no variants
+        const validProducts = formattedProducts.filter(product => product.variants.length > 0);
+        console.log(`Found ${validProducts.length} valid products out of ${formattedProducts.length} total`);
+
         // Cache the response for 5 minutes
         res.setHeader('Cache-Control', 'public, max-age=300');
-        return res.json(formattedProducts);
+        return res.json(validProducts);
     } catch (error) {
         console.error('Error in products API:', error);
         return res.status(500).json({
