@@ -114,44 +114,114 @@ main {
 	transform: translateY(-5px);
 }
 
-/* Responsive styles */
+/* Responsive adjustments */
 @media (max-width: 768px) {
 	header {
-		position: static;
+		position: fixed;
 		width: 100%;
 		height: auto;
 		border-right: none;
 		border-bottom: 1px solid #eee;
 		padding: 10px;
+		background: white;
+		z-index: 100;
+	}
+
+	header > a img {
+		max-width: 120px;
+		margin-bottom: 10px;
 	}
 
 	.nav-links {
 		display: flex;
 		justify-content: center;
 		flex-wrap: wrap;
+		gap: 15px;
+		padding: 0 10px;
 	}
 
 	.nav-links li {
-		margin: 5px 10px;
+		margin: 0;
+		flex: 0 0 auto;
+	}
+
+	.nav-links img {
+		max-width: 80px;
+		height: auto;
 	}
 
 	main {
 		margin-left: 0;
-		padding: 20px;
+		padding: 120px 10px 20px;
 	}
 
 	.music-container {
-		padding: 10px;
+		padding: 0 10px;
 	}
 
 	.albums-grid {
+		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+		gap: 15px;
+	}
+
+	.album-cover {
+		width: 100%;
+		height: auto;
+	}
+
+	.album-info h2 {
+		font-size: 1rem;
+	}
+
+	.album-info p {
+		font-size: 0.9rem;
+	}
+
+	.social-links {
+		margin-top: 30px;
+		padding-top: 20px;
+	}
+
+	.social-icons {
 		gap: 20px;
+	}
+
+	.social-icon {
+		width: 35px;
+		height: 35px;
+	}
+}
+
+/* Additional adjustments for very small screens */
+@media (max-width: 360px) {
+	.albums-grid {
+		grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+		gap: 10px;
+	}
+
+	.nav-links img {
+		max-width: 70px;
+	}
+}
+
+/* Landscape mode adjustments */
+@media (max-width: 768px) and (orientation: landscape) {
+	header {
+		position: absolute;
+	}
+
+	main {
+		padding-top: 160px;
+	}
+
+	.albums-grid {
+		grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
 	}
 }
 
 /* Focus styles for accessibility */
 a:focus {
-		outline: 3px transparent ;
+	outline: 3px transparent ;
 	outline-offset: 2px;
 }
 
