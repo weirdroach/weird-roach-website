@@ -207,22 +207,22 @@ a:focus {
 		height: auto;
 		border-right: none;
 		border-bottom: 1px solid #eee;
-		padding: 10px;
+		padding: 8px;
 		background: white;
 		z-index: 100;
 	}
 
 	header > a img {
-		max-width: 120px;
-		margin-bottom: 10px;
+		max-width: 100px;
+		margin-bottom: 8px;
 	}
 
 	.nav-links {
 		display: flex;
 		justify-content: center;
 		flex-wrap: wrap;
-		gap: 15px;
-		padding: 0 10px;
+		gap: 8px;
+		padding: 0 5px;
 	}
 
 	.nav-links li {
@@ -231,7 +231,7 @@ a:focus {
 	}
 
 	.nav-links img {
-		max-width: 80px;
+		max-width: 65px;
 		height: auto;
 	}
 
