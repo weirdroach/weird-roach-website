@@ -237,17 +237,12 @@ a:focus {
 
 	main {
 		margin-left: 0;
-		padding: 100px 10px 10px;
+		padding: 120px 10px 20px;
 		min-height: calc(100vh - 80px);
-		display: flex;
-		flex-direction: column;
 	}
 
 	.gallery-container {
 		padding: 0 10px;
-		flex: 1;
-		display: flex;
-		flex-direction: column;
 	}
 
 	.gallery-grid {
@@ -295,16 +290,13 @@ a:focus {
 	}
 
 	.social-links {
-		margin-top: 20px;
-		padding-top: 15px;
-		position: relative;
-		bottom: 0;
-		width: 100%;
+		margin-top: 30px;
+		padding-top: 20px;
 	}
 
 	.social-icons {
 		gap: 20px;
-		padding: 10px 0;
+		padding: 15px 0;
 	}
 
 	.social-icon {
