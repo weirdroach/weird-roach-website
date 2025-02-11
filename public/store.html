@@ -575,11 +575,15 @@
                 'heather': '#D3D3D3',
                 'dark grey': '#A9A9A9',
                 'grey': '#808080',
-                'green': '#228B22'
+                'green': '#228B22',
+                'light grey': '#D3D3D3',
+                'light heather grey': '#D3D3D3',
+                'light gray': '#D3D3D3',
+                'heather light grey': '#D3D3D3'
             };
             
             // Convert color name to lowercase for case-insensitive matching
-            const normalizedColorName = colorName.toLowerCase();
+            const normalizedColorName = colorName.toLowerCase().trim();
             
             // Check if the exact color name exists in the map
             if (colorMap[normalizedColorName]) {
@@ -593,7 +597,7 @@
                 }
             }
             
-            // If no match is found, return the original color name
+            // Log any unmapped colors to help with debugging
             console.log('No color mapping found for:', colorName);
             return colorName;
         }
