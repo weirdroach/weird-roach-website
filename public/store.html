@@ -239,12 +239,13 @@
         }
 
         // Add to cart
-        function addToCart(product, variant, selectedSize) {
+        function addToCart(product) {
             cart.push({
-                name: `${product.name} - ${variant.color} (${selectedSize})`,
-                price: variant.price,
+                name: `${product.name} - ${product.color} (${product.size})`,
+                price: product.price,
                 quantity: 1,
-                image: variant.preview_url
+                image: product.image,
+                variant_id: product.variant_id
             });
             updateCartUI();
             cartSidebar.classList.add('active');
@@ -544,7 +545,7 @@
                             size: selectedVariant.size,
                             price: selectedVariant.price,
                             quantity: 1,
-                            image: selectedVariant.preview_url
+                            image: selectedVariant.preview_url || firstVariant.preview_url
                         });
                     });
                 }
@@ -579,27 +580,44 @@
                 'light grey': '#D3D3D3',
                 'light heather grey': '#D3D3D3',
                 'light gray': '#D3D3D3',
-                'heather light grey': '#D3D3D3'
+                'heather light grey': '#D3D3D3',
+                'bottle green': '#006A4E',
+                'burgundy': '#800020',
+                'cardinal': '#C41E3A',
+                'carolina blue': '#4B9CD3',
+                'charcoal': '#36454F',
+                'dark green': '#006400',
+                'dark red': '#8B0000',
+                'military green': '#4B5320',
+                'olive': '#808000',
+                'orange': '#FFA500',
+                'pink': '#FFC0CB',
+                'royal blue': '#4169E1',
+                'sand': '#C2B280',
+                'silver': '#C0C0C0',
+                'slate': '#708090',
+                'teal': '#008080',
+                'yellow': '#FFD700'
             };
             
-            // Convert color name to lowercase for case-insensitive matching
+            // Convert color name to lowercase and trim for case-insensitive matching
             const normalizedColorName = colorName.toLowerCase().trim();
             
-            // Check if the exact color name exists in the map
+            // Check for exact match first
             if (colorMap[normalizedColorName]) {
                 return colorMap[normalizedColorName];
             }
             
-            // Check for partial matches (e.g., if color name contains 'heather' or 'forest')
+            // Check for partial matches
             for (const [key, value] of Object.entries(colorMap)) {
                 if (normalizedColorName.includes(key)) {
                     return value;
                 }
             }
             
-            // Log any unmapped colors to help with debugging
+            // Log unmapped colors to help with debugging
             console.log('No color mapping found for:', colorName);
-            return colorName;
+            return normalizedColorName;
         }
     </script>
 </body>
