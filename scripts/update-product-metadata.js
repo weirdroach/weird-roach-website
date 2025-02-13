@@ -8,19 +8,26 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // Map of product names to their Printful variant IDs
 const PRINTFUL_VARIANT_MAP = {
-    // French Elephant Products
-    'French Elephant - Black (S)': '4711377369',
-    'French Elephant - Black (M)': '4711377369',
-    'French Elephant - Black (L)': '4711377369',
-    'French Elephant - Black (XL)': '4711377369',
-    'French Elephant - Black (2XL)': '4711377369',
+    // French Elephant T-Shirt Products
+    'French Elephant - Black (S)': '14904',
+    'French Elephant - Black (M)': '14904',
+    'French Elephant - Black (L)': '14904',
+    'French Elephant - Black (XL)': '14904',
+    'French Elephant - Black (2XL)': '14904',
+    
+    // French Elephant Pullover Products
+    'French Elephant Pullover - Black (S)': '14902',
+    'French Elephant Pullover - Black (M)': '14902',
+    'French Elephant Pullover - Black (L)': '14902',
+    'French Elephant Pullover - Black (XL)': '14902',
+    'French Elephant Pullover - Black (2XL)': '14902',
     
     // Phuture Times Products
-    'Phuture Times - Black (S)': '4711377370',
-    'Phuture Times - Black (M)': '4711377370',
-    'Phuture Times - Black (L)': '4711377370',
-    'Phuture Times - Black (XL)': '4711377370',
-    'Phuture Times - Black (2XL)': '4711377370',
+    'Phuture Times - Black (S)': '14903',
+    'Phuture Times - Black (M)': '14903',
+    'Phuture Times - Black (L)': '14903',
+    'Phuture Times - Black (XL)': '14903',
+    'Phuture Times - Black (2XL)': '14903',
     
     // Add more products here as they are created
     // Format: 'Product Name - Color (Size)': 'printful_variant_id'
