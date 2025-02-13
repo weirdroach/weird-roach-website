@@ -1,5 +1,6 @@
 import Stripe from 'stripe';
 import fetch from 'node-fetch';
+import nodemailer from 'nodemailer';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const PRINTFUL_API_URL = 'https://api.printful.com';
@@ -302,6 +303,79 @@ export default async function handler(req, res) {
                 message: 'Failed to confirm Printful order',
                 printful_error: confirmResponse.json
             });
+        }
+
+        // Send confirmation email
+        try {
+            console.log('Sending confirmation email...');
+            
+            // Format shipping address
+            const shippingAddress = session.shipping_details.address;
+            const formattedAddress = shippingAddress ? `
+                ${session.shipping_details.name}<br>
+                ${shippingAddress.line1}<br>
+                ${shippingAddress.line2 ? shippingAddress.line2 + '<br>' : ''}
+                ${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.postal_code}<br>
+                ${shippingAddress.country}
+            ` : 'No shipping address provided';
+
+            // Create email content
+            const items = lineItems.map(item => 
+                `${item.quantity}x ${item.description} - $${(item.amount_total / 100).toFixed(2)}`
+            ).join('\n');
+
+            const emailContent = `
+                <h1>Thank you for your order from Weird Roach!</h1>
+                <h2>Order Details:</h2>
+                <pre>${items}</pre>
+                <p><strong>Total:</strong> $${(expandedSession.amount_total / 100).toFixed(2)}</p>
+                
+                <h2>Shipping Address:</h2>
+                <p>${formattedAddress}</p>
+                
+                <p>We'll send you another email when your order ships.</p>
+                <p>Thanks for the support!</p>
+                
+                <p>Order ID: ${orderId}</p>
+                <p>You can track your order here: https://www.printful.com/dashboard/order/${orderId}</p>
+            `;
+
+            // Create transporter
+            const transporter = nodemailer.createTransport({
+                host: 'smtp.gmail.com',
+                port: 465,
+                secure: true,
+                auth: {
+                    user: process.env.EMAIL_USER,
+                    pass: process.env.EMAIL_PASSWORD.trim()
+                },
+                debug: true,
+                logger: true,
+                tls: {
+                    rejectUnauthorized: true,
+                    minVersion: 'TLSv1.2'
+                }
+            });
+
+            // Send email
+            const emailResult = await transporter.sendMail({
+                from: `"Weird Roach Store" <${process.env.EMAIL_USER}>`,
+                to: session.customer_details?.email,
+                subject: 'Order Confirmation - Weird Roach Store',
+                html: emailContent,
+                text: `Order Details:\n\n${items}\n\nTotal: $${(expandedSession.amount_total / 100).toFixed(2)}\n\nShipping to:\n${session.shipping_details.name}\n${shippingAddress?.line1}\n${shippingAddress?.line2 ? shippingAddress.line2 + '\n' : ''}${shippingAddress?.city}, ${shippingAddress?.state} ${shippingAddress?.postal_code}\n${shippingAddress?.country}\n\nWe'll send you another email when your order ships.\n\nThanks for the support!\n\nOrder ID: ${orderId}\nTrack your order: https://www.printful.com/dashboard/order/${orderId}`,
+                headers: {
+                    'X-Entity-Ref-ID': session.id,
+                    'X-Mailer': 'Weird Roach Store Mailer',
+                    'X-Priority': '1',
+                    'Importance': 'high'
+                }
+            });
+            
+            console.log('Confirmation email sent:', emailResult);
+        } catch (emailError) {
+            console.error('Failed to send confirmation email:', emailError);
+            // Don't fail the request if email fails, just log it
         }
 
         return res.json({
