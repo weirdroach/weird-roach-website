@@ -254,6 +254,23 @@ export default async function handler(req, res) {
             });
         }
 
+        // Confirm the order
+        const orderId = printfulResponse.json.result.id;
+        console.log('Confirming Printful order:', orderId);
+
+        const confirmResponse = await makePrintfulRequest(`/orders/${orderId}/confirm`, {
+            method: 'POST'
+        });
+
+        if (!confirmResponse.ok) {
+            console.error('Failed to confirm order:', confirmResponse.json);
+            return res.status(500).json({
+                status: 'error',
+                message: 'Failed to confirm Printful order',
+                printful_error: confirmResponse.json
+            });
+        }
+
         return res.json({
             status: 'success',
             payment_intent: {
@@ -267,7 +284,10 @@ export default async function handler(req, res) {
                 customer_email: session.customer_details?.email,
                 shipping_name: session.shipping_details?.name
             },
-            printful_order: printfulResponse.json.result
+            printful_order: {
+                ...printfulResponse.json.result,
+                confirmed: confirmResponse.json.result
+            }
         });
     } catch (error) {
         console.error('Error checking order:', error);
