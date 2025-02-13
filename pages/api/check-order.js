@@ -187,6 +187,39 @@ export default async function handler(req, res) {
             }))
         );
 
+        // Check if order already exists for this payment intent
+        console.log('Checking for existing orders...');
+        const existingOrdersResponse = await makePrintfulRequest('/orders', {
+            method: 'GET'
+        });
+
+        if (existingOrdersResponse.ok) {
+            const existingOrder = existingOrdersResponse.json.result.find(order => 
+                order.retail_costs.total === (expandedSession.amount_total / 100).toString() &&
+                order.recipient.email === session.customer_details.email &&
+                order.created > paymentIntent.created - 3600 // Within the last hour
+            );
+
+            if (existingOrder) {
+                console.log('Found existing order:', existingOrder.id);
+                return res.json({
+                    status: 'success',
+                    payment_intent: {
+                        id: paymentIntent.id,
+                        status: paymentIntent.status,
+                        amount: paymentIntent.amount,
+                        created: paymentIntent.created
+                    },
+                    session: {
+                        id: session.id,
+                        customer_email: session.customer_details?.email,
+                        shipping_name: session.shipping_details?.name
+                    },
+                    printful_order: existingOrder
+                });
+            }
+        }
+
         // Create Printful order
         const printfulOrder = {
             recipient: {
