@@ -250,7 +250,14 @@ export default async function handler(req, res) {
                 }
 
                 // Get the sync variant ID from Printful
-                const syncVariantId = 4711377369; // This is the sync variant ID we found earlier
+                let syncVariantId;
+                if (item.description.toLowerCase().includes('french elephant')) {
+                    syncVariantId = 4711377369; // French Elephant variant ID
+                } else if (item.description.toLowerCase().includes('phuture')) {
+                    syncVariantId = 4711377370; // Phuture Times variant ID
+                } else {
+                    syncVariantId = variantId; // Use the one from metadata for other products
+                }
                 
                 return {
                     sync_variant_id: syncVariantId,
@@ -281,10 +288,42 @@ export default async function handler(req, res) {
         });
 
         if (!printfulResponse.ok) {
+            console.error('Failed to create Printful order:', {
+                status: printfulResponse.status,
+                response: printfulResponse.json,
+                order_data: printfulOrder
+            });
+            
+            // Check for specific error cases
+            const errorResponse = printfulResponse.json;
+            if (errorResponse.error) {
+                if (errorResponse.error.message.includes('variant')) {
+                    return res.status(400).json({
+                        status: 'error',
+                        message: 'Invalid Printful variant ID',
+                        details: {
+                            error: errorResponse.error,
+                            order_items: printfulOrder.items
+                        }
+                    });
+                }
+                if (errorResponse.error.message.includes('retail_price')) {
+                    return res.status(400).json({
+                        status: 'error',
+                        message: 'Invalid retail price',
+                        details: {
+                            error: errorResponse.error,
+                            order_costs: printfulOrder.retail_costs
+                        }
+                    });
+                }
+            }
+
             return res.status(500).json({
                 status: 'error',
                 message: 'Failed to create Printful order',
-                printful_error: printfulResponse.json
+                printful_error: printfulResponse.json,
+                order_data: printfulOrder
             });
         }
 
