@@ -57,7 +57,7 @@ export default async function handler(req, res) {
         // Get the associated checkout session
         const sessions = await stripe.checkout.sessions.list({
             payment_intent: payment_intent,
-            expand: ['data.line_items']
+            expand: ['data.line_items', 'data.line_items.data.price.product']
         });
 
         if (!sessions.data.length) {
@@ -66,6 +66,7 @@ export default async function handler(req, res) {
 
         const session = sessions.data[0];
         console.log('Found checkout session:', session.id);
+        console.log('Session data:', JSON.stringify(session, null, 2));
 
         // Check if payment was successful
         if (paymentIntent.status !== 'succeeded') {
@@ -75,6 +76,13 @@ export default async function handler(req, res) {
                 payment_status: paymentIntent.status
             });
         }
+
+        // Get line items with expanded product data
+        const expandedSession = await stripe.checkout.sessions.retrieve(session.id, {
+            expand: ['line_items', 'line_items.data.price.product']
+        });
+
+        console.log('Line items:', JSON.stringify(expandedSession.line_items, null, 2));
 
         // Create Printful order
         const printfulOrder = {
@@ -89,11 +97,19 @@ export default async function handler(req, res) {
                 email: session.customer_details.email,
                 phone: session.customer_details.phone || ''
             },
-            items: session.line_items.data.map(item => ({
-                sync_variant_id: item.price.product.metadata.printful_variant_id,
-                quantity: item.quantity,
-                retail_price: (item.amount_total / 100).toString()
-            })),
+            items: expandedSession.line_items.data.map(item => {
+                const variantId = item.price.product.metadata.printful_variant_id;
+                console.log(`Processing line item:`, {
+                    description: item.description,
+                    metadata: item.price.product.metadata,
+                    variant_id: variantId
+                });
+                return {
+                    sync_variant_id: variantId,
+                    quantity: item.quantity,
+                    retail_price: (item.amount_total / 100).toString()
+                };
+            }),
             retail_costs: {
                 subtotal: (session.amount_subtotal / 100).toString(),
                 shipping: (session.total_details.amount_shipping / 100).toString(),
