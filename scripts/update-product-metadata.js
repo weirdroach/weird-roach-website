@@ -22,12 +22,12 @@ const PRINTFUL_VARIANT_MAP = {
     'French Elephant Pullover - Black (XL)': '14902',
     'French Elephant Pullover - Black (2XL)': '14902',
     
-    // Phuture Times Products
-    'Phuture Times - Black (S)': '14903',
-    'Phuture Times - Black (M)': '14903',
-    'Phuture Times - Black (L)': '14903',
-    'Phuture Times - Black (XL)': '14903',
-    'Phuture Times - Black (2XL)': '14903',
+    // Phuture Products
+    'Phuture - Black (S)': '14903',
+    'Phuture - Black (M)': '14903',
+    'Phuture - Black (L)': '14903',
+    'Phuture - Black (XL)': '14903',
+    'Phuture - Black (2XL)': '14903',
     
     // Add more products here as they are created
     // Format: 'Product Name - Color (Size)': 'printful_variant_id'
