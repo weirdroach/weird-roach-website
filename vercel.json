@@ -7,11 +7,19 @@
       "use": "@vercel/node"
     },
     {
+      "src": "pages/api/**/*.js",
+      "use": "@vercel/node"
+    },
+    {
       "src": "public/**",
       "use": "@vercel/static"
     }
   ],
   "routes": [
+    {
+      "src": "/api/test-connection",
+      "dest": "pages/api/test-connection.js"
+    },
     {
       "src": "/api/(.*)",
       "dest": "server.js"
