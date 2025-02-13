@@ -46,12 +46,6 @@ async function updateProductMetadata() {
         for (const product of products.data) {
             console.log(`\nProcessing product: ${product.name}`);
             
-            // Check if product already has printful_variant_id
-            if (product.metadata.printful_variant_id) {
-                console.log(`Product already has variant ID: ${product.metadata.printful_variant_id}`);
-                continue;
-            }
-
             // Find matching variant ID
             const variantId = PRINTFUL_VARIANT_MAP[product.name];
             if (!variantId) {
@@ -59,7 +53,7 @@ async function updateProductMetadata() {
                 continue;
             }
 
-            // Update product metadata
+            // Always update the metadata
             console.log(`Updating metadata for ${product.name} with variant ID: ${variantId}`);
             await stripe.products.update(product.id, {
                 metadata: {
