@@ -3,10 +3,6 @@
   "public": true,
   "builds": [
     {
-      "src": "server.js",
-      "use": "@vercel/node"
-    },
-    {
       "src": "pages/api/**/*.js",
       "use": "@vercel/node"
     },
@@ -17,20 +13,8 @@
   ],
   "routes": [
     {
-      "src": "/api/test-connection",
-      "dest": "pages/api/test-connection.js"
-    },
-    {
-      "src": "/api/webhook",
-      "dest": "pages/api/webhook.js"
-    },
-    {
-      "src": "/api/test-email",
-      "dest": "pages/api/test-email.js"
-    },
-    {
       "src": "/api/(.*)",
-      "dest": "server.js"
+      "dest": "/pages/api/$1.js"
     },
     {
       "src": "/(.*)",
