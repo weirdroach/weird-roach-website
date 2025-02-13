@@ -47,10 +47,14 @@ export default async function handler(req, res) {
     // Test Stripe connection
     try {
         const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-        const stripeConfig = await stripe.configurations.list();
+        // Use a simpler test - just check if we can list payment methods
+        await stripe.paymentMethods.list({
+            limit: 1,
+            type: 'card'
+        });
         results.stripe = {
             status: 'connected',
-            accountId: stripeConfig.data[0]?.account
+            mode: process.env.NODE_ENV
         };
     } catch (error) {
         results.stripe = {
