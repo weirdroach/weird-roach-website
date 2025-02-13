@@ -104,8 +104,33 @@ export default async function handler(req, res) {
                 images: product.images
             });
 
-            // Check if product has required metadata
+            // If product has no metadata, try to find a matching product with metadata
+            let productWithMetadata = product;
             if (!product.metadata.printful_variant_id) {
+                console.log('Product has no metadata, searching for matching product...');
+                
+                const products = await stripe.products.list({
+                    limit: 100,
+                    active: true
+                });
+                
+                const matchingProduct = products.data.find(p => 
+                    p.name === product.name && 
+                    p.metadata.printful_variant_id
+                );
+                
+                if (matchingProduct) {
+                    console.log('Found matching product with metadata:', {
+                        id: matchingProduct.id,
+                        name: matchingProduct.name,
+                        metadata: matchingProduct.metadata
+                    });
+                    productWithMetadata = matchingProduct;
+                }
+            }
+
+            // Check if product has required metadata
+            if (!productWithMetadata.metadata.printful_variant_id) {
                 console.error('Product is missing printful_variant_id:', {
                     product_id: product.id,
                     name: product.name,
@@ -126,7 +151,7 @@ export default async function handler(req, res) {
                 ...item,
                 price: {
                     ...price,
-                    product
+                    product: productWithMetadata
                 }
             });
         }
