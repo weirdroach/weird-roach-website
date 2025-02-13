@@ -48,25 +48,8 @@ export default async function handler(req, res) {
         console.log('Checking payment intent:', payment_intent);
 
         // Retrieve the payment intent
-        const paymentIntent = await stripe.paymentIntents.retrieve(payment_intent, {
-            expand: ['charges', 'latest_charge']
-        });
-
+        const paymentIntent = await stripe.paymentIntents.retrieve(payment_intent);
         console.log('Payment Intent Status:', paymentIntent.status);
-
-        // Get the associated checkout session
-        const sessions = await stripe.checkout.sessions.list({
-            payment_intent: payment_intent,
-            expand: ['data.line_items', 'data.line_items.data.price.product']
-        });
-
-        if (!sessions.data.length) {
-            return res.status(404).json({ error: 'No checkout session found for this payment' });
-        }
-
-        const session = sessions.data[0];
-        console.log('Found checkout session:', session.id);
-        console.log('Session data:', JSON.stringify(session, null, 2));
 
         // Check if payment was successful
         if (paymentIntent.status !== 'succeeded') {
@@ -77,12 +60,38 @@ export default async function handler(req, res) {
             });
         }
 
-        // Get line items with expanded product data
-        const expandedSession = await stripe.checkout.sessions.retrieve(session.id, {
-            expand: ['line_items', 'line_items.data.price.product']
+        // Get the associated checkout session
+        const sessions = await stripe.checkout.sessions.list({
+            payment_intent: payment_intent
         });
 
-        console.log('Line items:', JSON.stringify(expandedSession.line_items, null, 2));
+        if (!sessions.data.length) {
+            return res.status(404).json({ error: 'No checkout session found for this payment' });
+        }
+
+        const session = sessions.data[0];
+        console.log('Found checkout session:', session.id);
+
+        // Get session with line items
+        const expandedSession = await stripe.checkout.sessions.retrieve(session.id, {
+            expand: ['line_items']
+        });
+
+        // Get line items with product details
+        const lineItems = [];
+        for (const item of expandedSession.line_items.data) {
+            const price = await stripe.prices.retrieve(item.price.id);
+            const product = await stripe.products.retrieve(price.product);
+            lineItems.push({
+                ...item,
+                price: {
+                    ...price,
+                    product
+                }
+            });
+        }
+
+        console.log('Line items with products:', JSON.stringify(lineItems, null, 2));
 
         // Create Printful order
         const printfulOrder = {
@@ -97,7 +106,7 @@ export default async function handler(req, res) {
                 email: session.customer_details.email,
                 phone: session.customer_details.phone || ''
             },
-            items: expandedSession.line_items.data.map(item => {
+            items: lineItems.map(item => {
                 const variantId = item.price.product.metadata.printful_variant_id;
                 console.log(`Processing line item:`, {
                     description: item.description,
@@ -111,10 +120,10 @@ export default async function handler(req, res) {
                 };
             }),
             retail_costs: {
-                subtotal: (session.amount_subtotal / 100).toString(),
-                shipping: (session.total_details.amount_shipping / 100).toString(),
-                tax: (session.total_details.amount_tax / 100).toString(),
-                total: (session.amount_total / 100).toString()
+                subtotal: (expandedSession.amount_subtotal / 100).toString(),
+                shipping: (expandedSession.total_details.amount_shipping / 100).toString(),
+                tax: (expandedSession.total_details.amount_tax / 100).toString(),
+                total: (expandedSession.amount_total / 100).toString()
             },
             gift: null,
             packing_slip: {
