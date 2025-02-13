@@ -80,8 +80,26 @@ export default async function handler(req, res) {
         // Get line items with product details
         const lineItems = [];
         for (const item of expandedSession.line_items.data) {
+            console.log('\nProcessing line item:', {
+                price_id: item.price.id,
+                quantity: item.quantity,
+                amount_total: item.amount_total
+            });
+            
             const price = await stripe.prices.retrieve(item.price.id);
+            console.log('Retrieved price:', {
+                id: price.id,
+                product_id: price.product,
+                unit_amount: price.unit_amount
+            });
+            
             const product = await stripe.products.retrieve(price.product);
+            console.log('Retrieved product:', {
+                id: product.id,
+                name: product.name,
+                metadata: product.metadata
+            });
+            
             lineItems.push({
                 ...item,
                 price: {
@@ -91,7 +109,16 @@ export default async function handler(req, res) {
             });
         }
 
-        console.log('Line items with products:', JSON.stringify(lineItems, null, 2));
+        console.log('\nPreparing Printful order with line items:', 
+            lineItems.map(item => ({
+                description: item.description,
+                quantity: item.quantity,
+                amount_total: item.amount_total,
+                price_id: item.price.id,
+                product_id: item.price.product.id,
+                variant_id: item.price.product.metadata.printful_variant_id
+            }))
+        );
 
         // Create Printful order
         const printfulOrder = {
@@ -108,13 +135,21 @@ export default async function handler(req, res) {
             },
             items: lineItems.map(item => {
                 const variantId = item.price.product.metadata.printful_variant_id;
-                console.log(`Processing line item:`, {
+                console.log(`\nProcessing Printful order item:`, {
                     description: item.description,
                     metadata: item.price.product.metadata,
-                    variant_id: variantId
+                    variant_id: variantId,
+                    quantity: item.quantity,
+                    amount_total: item.amount_total
                 });
+                
+                if (!variantId) {
+                    console.error('Missing printful_variant_id in product metadata:', item.price.product);
+                    throw new Error(`Missing Printful variant ID for product: ${item.price.product.name}`);
+                }
+                
                 return {
-                    sync_variant_id: variantId,
+                    sync_variant_id: parseInt(variantId, 10),
                     quantity: item.quantity,
                     retail_price: (item.amount_total / 100).toString()
                 };
