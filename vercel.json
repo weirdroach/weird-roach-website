@@ -21,6 +21,14 @@
       "dest": "pages/api/test-connection.js"
     },
     {
+      "src": "/api/webhook",
+      "dest": "pages/api/webhook.js"
+    },
+    {
+      "src": "/api/test-email",
+      "dest": "pages/api/test-email.js"
+    },
+    {
       "src": "/api/(.*)",
       "dest": "server.js"
     },
