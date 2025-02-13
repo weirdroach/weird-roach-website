@@ -10,6 +10,10 @@ const PRINTFUL_STORE_ID = process.env.PRINTFUL_STORE_ID;
 
 // Function to make authenticated Printful API requests
 const makePrintfulRequest = async (endpoint, options = {}) => {
+    console.log('\n=== Making Printful Request ===');
+    console.log('Endpoint:', endpoint);
+    console.log('Options:', JSON.stringify(options, null, 2));
+
     const response = await fetch(`${PRINTFUL_API_URL}${endpoint}`, {
         ...options,
         headers: {
@@ -20,18 +24,26 @@ const makePrintfulRequest = async (endpoint, options = {}) => {
         }
     });
 
-    // Log API response for debugging
+    const responseText = await response.text();
+    console.log('Printful Response Status:', response.status);
+    console.log('Printful Response Headers:', response.headers);
+    console.log('Printful Response Body:', responseText);
+
     if (!response.ok) {
-        const errorText = await response.text();
         console.error('Printful API Error:', {
             endpoint,
             status: response.status,
             statusText: response.statusText,
-            error: errorText
+            error: responseText
         });
+        throw new Error(`Printful API error: ${responseText}`);
     }
 
-    return response;
+    return { 
+        ok: response.ok,
+        status: response.status,
+        json: responseText ? JSON.parse(responseText) : null
+    };
 };
 
 // Email configuration
@@ -81,39 +93,39 @@ export default async function handler(req, res) {
         const rawBody = await buffer(req);
         const signature = req.headers['stripe-signature'];
 
-        console.log('Received webhook request');
-        
-        // For test requests, just log and return success
-        if (signature === 'test_signature') {
-            const payload = JSON.parse(rawBody.toString());
-            console.log('Test webhook received:', payload);
-            return res.json({ 
-                received: true,
-                mode: 'test',
-                event: payload
-            });
-        }
+        console.log('\n=== Received Webhook Request ===');
+        console.log('Timestamp:', new Date().toISOString());
+        console.log('Signature:', signature);
+        console.log('Raw Body:', rawBody.toString());
 
-        // Handle real Stripe webhooks
+        let event;
         try {
-            const event = stripe.webhooks.constructEvent(
+            event = stripe.webhooks.constructEvent(
                 rawBody,
                 signature,
                 process.env.STRIPE_WEBHOOK_SECRET
             );
-            
-            console.log('Webhook event type:', event.type);
-            
-            if (event.type === 'checkout.session.completed') {
-                const session = event.data.object;
-                console.log('Processing completed checkout session:', session.id);
+            console.log('\n=== Webhook Event ===');
+            console.log('Event Type:', event.type);
+            console.log('Event Data:', JSON.stringify(event.data, null, 2));
+        } catch (err) {
+            console.error('Webhook signature verification failed:', err.message);
+            return res.status(400).json({ error: `Webhook Error: ${err.message}` });
+        }
 
-                // For test requests, skip the session retrieval
-                const sessionWithLineItems = signature === 'test_signature' ? 
-                    { line_items: { data: [{ quantity: 1, description: 'Test Item', amount_total: 2000 }] } } :
-                    await stripe.checkout.sessions.retrieve(session.id, {
-                        expand: ['line_items']
-                    });
+        if (event.type === 'checkout.session.completed') {
+            const session = event.data.object;
+            console.log('\n=== Processing Checkout Session ===');
+            console.log('Session ID:', session.id);
+            console.log('Payment Intent:', session.payment_intent);
+
+            try {
+                // Get the expanded session with line items
+                console.log('\n=== Retrieving Session Details ===');
+                const sessionWithLineItems = await stripe.checkout.sessions.retrieve(session.id, {
+                    expand: ['line_items', 'line_items.data.price.product']
+                });
+                console.log('Session Line Items:', JSON.stringify(sessionWithLineItems.line_items, null, 2));
 
                 // Create order in Printful
                 console.log('\n=== Creating Printful Order ===');
@@ -129,16 +141,20 @@ export default async function handler(req, res) {
                         email: session.customer_details.email,
                         phone: session.customer_details.phone || ''
                     },
-                    items: sessionWithLineItems.line_items.data.map(item => ({
-                        sync_variant_id: item.price?.product?.metadata?.printful_variant_id || 'test_variant_id',
-                        quantity: item.quantity,
-                        retail_price: (item.amount_total / 100).toString()
-                    })),
+                    items: sessionWithLineItems.line_items.data.map(item => {
+                        const variantId = item.price.product.metadata.printful_variant_id;
+                        console.log(`Mapping line item to Printful variant: ${variantId}`);
+                        return {
+                            sync_variant_id: variantId,
+                            quantity: item.quantity,
+                            retail_price: (item.amount_total / 100).toString()
+                        };
+                    }),
                     retail_costs: {
-                        subtotal: (session.amount_subtotal / 100).toString(),
-                        shipping: (session.total_details.amount_shipping / 100).toString(),
-                        tax: (session.total_details.amount_tax / 100).toString(),
-                        total: (session.amount_total / 100).toString()
+                        subtotal: (sessionWithLineItems.amount_subtotal / 100).toString(),
+                        shipping: (sessionWithLineItems.total_details.amount_shipping / 100).toString(),
+                        tax: (sessionWithLineItems.total_details.amount_tax / 100).toString(),
+                        total: (sessionWithLineItems.amount_total / 100).toString()
                     },
                     gift: null,
                     packing_slip: {
@@ -148,23 +164,19 @@ export default async function handler(req, res) {
                     }
                 };
 
-                if (signature !== 'test_signature') {
-                    // Create the order in Printful only for real requests
-                    const printfulResponse = await makePrintfulRequest('/orders', {
-                        method: 'POST',
-                        body: JSON.stringify(printfulOrder)
-                    });
+                console.log('Printful Order Data:', JSON.stringify(printfulOrder, null, 2));
 
-                    if (!printfulResponse.ok) {
-                        console.error('Error creating Printful order:', await printfulResponse.text());
-                        return res.status(500).json({ error: 'Failed to create Printful order' });
-                    }
+                // Create the order in Printful
+                const printfulResponse = await makePrintfulRequest('/orders', {
+                    method: 'POST',
+                    body: JSON.stringify(printfulOrder)
+                });
 
-                    const printfulResult = await printfulResponse.json();
-                    console.log('Created Printful order:', printfulResult.result.id);
-                } else {
-                    console.log('Test mode - Printful order would be:', printfulOrder);
+                if (!printfulResponse.ok) {
+                    throw new Error(`Failed to create Printful order: ${JSON.stringify(printfulResponse)}`);
                 }
+
+                console.log('Created Printful order:', printfulResponse.json.result.id);
 
                 // Format shipping address
                 const shippingAddress = session.shipping_details.address;
@@ -194,38 +206,45 @@ export default async function handler(req, res) {
                     <p>Thanks for the support!</p>
                 `;
 
-                if (signature !== 'test_signature') {
-                    // Send email only for real requests
-                    console.log('\n=== Sending Order Confirmation Email ===');
-                    console.log('Customer email:', session.customer_details?.email);
-                    
-                    const emailResult = await transporter.sendMail({
-                        from: `"Weird Roach Store" <${process.env.EMAIL_USER}>`,
-                        to: session.customer_details?.email,
-                        subject: 'Order Confirmation - Weird Roach Store',
-                        html: emailContent,
-                        text: `Order Details:\n\n${items}\n\nTotal: $${(session.amount_total / 100).toFixed(2)}\n\nShipping to:\n${session.shipping_details.name}\n${shippingAddress?.line1}\n${shippingAddress?.line2 ? shippingAddress.line2 + '\n' : ''}${shippingAddress?.city}, ${shippingAddress?.state} ${shippingAddress?.postal_code}\n${shippingAddress?.country}\n\nWe'll send you another email when your order ships.\n\nThanks for the support!`,
-                        headers: {
-                            'X-Entity-Ref-ID': session.id,
-                            'X-Mailer': 'Weird Roach Store Mailer',
-                            'X-Priority': '1',
-                            'Importance': 'high'
-                        }
-                    });
-                    
-                    console.log('Order confirmation email sent successfully!');
-                } else {
-                    console.log('Test mode - Email would be sent with content:', emailContent);
-                }
-            }
+                // Send email only for real requests
+                console.log('\n=== Sending Order Confirmation Email ===');
+                console.log('Customer email:', session.customer_details?.email);
+                
+                const emailResult = await transporter.sendMail({
+                    from: `"Weird Roach Store" <${process.env.EMAIL_USER}>`,
+                    to: session.customer_details?.email,
+                    subject: 'Order Confirmation - Weird Roach Store',
+                    html: emailContent,
+                    text: `Order Details:\n\n${items}\n\nTotal: $${(session.amount_total / 100).toFixed(2)}\n\nShipping to:\n${session.shipping_details.name}\n${shippingAddress?.line1}\n${shippingAddress?.line2 ? shippingAddress.line2 + '\n' : ''}${shippingAddress?.city}, ${shippingAddress?.state} ${shippingAddress?.postal_code}\n${shippingAddress?.country}\n\nWe'll send you another email when your order ships.\n\nThanks for the support!`,
+                    headers: {
+                        'X-Entity-Ref-ID': session.id,
+                        'X-Mailer': 'Weird Roach Store Mailer',
+                        'X-Priority': '1',
+                        'Importance': 'high'
+                    }
+                });
+                
+                console.log('Order confirmation email sent successfully!');
 
-            return res.json({ received: true, mode: 'live' });
-        } catch (err) {
-            console.error('Webhook signature verification failed:', err.message);
-            return res.status(400).json({ error: `Webhook Error: ${err.message}` });
+                return res.json({ 
+                    received: true,
+                    printful_order_id: printfulResponse.json.result.id
+                });
+            } catch (error) {
+                console.error('Error processing order:', error);
+                // Send error notification to admin
+                // ... add admin notification code here ...
+                throw error; // Re-throw to be caught by outer try-catch
+            }
         }
+
+        return res.json({ received: true });
     } catch (error) {
         console.error('Webhook error:', error);
-        return res.status(500).json({ error: 'Webhook handler failed', details: error.message });
+        return res.status(500).json({ 
+            error: 'Webhook handler failed', 
+            details: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 } 
