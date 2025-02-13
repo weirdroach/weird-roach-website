@@ -83,22 +83,44 @@ export default async function handler(req, res) {
             console.log('\nProcessing line item:', {
                 price_id: item.price.id,
                 quantity: item.quantity,
-                amount_total: item.amount_total
+                amount_total: item.amount_total,
+                description: item.description
             });
             
             const price = await stripe.prices.retrieve(item.price.id);
             console.log('Retrieved price:', {
                 id: price.id,
                 product_id: price.product,
-                unit_amount: price.unit_amount
+                unit_amount: price.unit_amount,
+                currency: price.currency
             });
             
             const product = await stripe.products.retrieve(price.product);
             console.log('Retrieved product:', {
                 id: product.id,
                 name: product.name,
-                metadata: product.metadata
+                metadata: product.metadata,
+                description: product.description,
+                images: product.images
             });
+
+            // Check if product has required metadata
+            if (!product.metadata.printful_variant_id) {
+                console.error('Product is missing printful_variant_id:', {
+                    product_id: product.id,
+                    name: product.name,
+                    metadata: product.metadata
+                });
+                return res.status(400).json({
+                    status: 'error',
+                    message: `Product "${product.name}" is missing Printful variant ID in metadata`,
+                    details: {
+                        product_id: product.id,
+                        name: product.name,
+                        metadata: product.metadata
+                    }
+                });
+            }
             
             lineItems.push({
                 ...item,
