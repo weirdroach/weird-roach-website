@@ -114,13 +114,33 @@ export default async function handler(req, res) {
                     active: true
                 });
                 
-                const matchingProduct = products.data.find(p => 
-                    p.name === product.name && 
-                    p.metadata.printful_variant_id
-                );
+                // Normalize product names for comparison
+                const normalizeProductName = (name) => {
+                    return name.toLowerCase()
+                        .replace(/\s+/g, ' ')  // Replace multiple spaces with single space
+                        .trim();               // Remove leading/trailing spaces
+                };
                 
-                if (matchingProduct) {
-                    console.log('Found matching product with metadata:', {
+                const currentProductName = normalizeProductName(product.name);
+                console.log('Looking for products matching:', currentProductName);
+                
+                // Find products with matching names
+                const matchingProducts = products.data.filter(p => {
+                    const normalizedName = normalizeProductName(p.name);
+                    const isMatch = normalizedName === currentProductName;
+                    console.log(`Comparing "${normalizedName}" with "${currentProductName}": ${isMatch}`);
+                    return isMatch && p.metadata.printful_variant_id;
+                });
+                
+                console.log('Found matching products:', matchingProducts.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    metadata: p.metadata
+                })));
+                
+                if (matchingProducts.length > 0) {
+                    const matchingProduct = matchingProducts[0];
+                    console.log('Using matching product:', {
                         id: matchingProduct.id,
                         name: matchingProduct.name,
                         metadata: matchingProduct.metadata
