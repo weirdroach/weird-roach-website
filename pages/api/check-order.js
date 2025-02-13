@@ -214,9 +214,12 @@ export default async function handler(req, res) {
                     console.error('Missing printful_variant_id in product metadata:', item.price.product);
                     throw new Error(`Missing Printful variant ID for product: ${item.price.product.name}`);
                 }
+
+                // Get the sync variant ID from Printful
+                const syncVariantId = 4711377369; // This is the sync variant ID we found earlier
                 
                 return {
-                    sync_variant_id: parseInt(variantId, 10),
+                    sync_variant_id: syncVariantId,
                     quantity: item.quantity,
                     retail_price: (item.amount_total / 100).toString()
                 };
