@@ -1,10 +1,28 @@
 import Stripe from 'stripe';
 import dotenv from 'dotenv';
+import fetch from 'node-fetch';
 
 // Load environment variables
 dotenv.config();
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const PRINTFUL_API_URL = 'https://api.printful.com';
+
+async function fetchPrintfulVariantPrice(variantId) {
+    const response = await fetch(`${PRINTFUL_API_URL}/store/variants/${variantId}`, {
+        headers: {
+            'Authorization': `Bearer ${process.env.PRINTFUL_ACCESS_TOKEN}`,
+            'X-PF-Store-Id': process.env.PRINTFUL_STORE_ID
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch variant price: ${await response.text()}`);
+    }
+
+    const data = await response.json();
+    return data.result.retail_price;
+}
 
 async function recreateProduct() {
     try {
@@ -37,31 +55,17 @@ async function recreateProduct() {
             metadata: newProduct.metadata
         });
 
-        // 3. Get the price of the old product
-        console.log('\nFetching prices...');
-        const prices = await stripe.prices.list({
-            product: oldProductId,
-            limit: 1
-        });
-        
-        if (prices.data.length === 0) {
-            console.log('No prices found for old product');
-            return;
-        }
-
-        const oldPrice = prices.data[0];
-        console.log('Old price:', {
-            id: oldPrice.id,
-            unit_amount: oldPrice.unit_amount,
-            currency: oldPrice.currency
-        });
+        // 3. Fetch price from Printful
+        console.log('\nFetching price from Printful...');
+        const retailPrice = await fetchPrintfulVariantPrice(printfulVariantId);
+        console.log(`Printful retail price: $${retailPrice}`);
 
         // 4. Create new price for new product
         console.log('\nCreating new price...');
         const newPrice = await stripe.prices.create({
             product: newProduct.id,
-            unit_amount: oldPrice.unit_amount,
-            currency: oldPrice.currency
+            unit_amount: Math.round(parseFloat(retailPrice) * 100),
+            currency: 'usd'
         });
         console.log('New price created:', {
             id: newPrice.id,
@@ -79,6 +83,7 @@ async function recreateProduct() {
         console.log('\n✓ Product recreation completed successfully');
         console.log('New product ID:', newProduct.id);
         console.log('New price ID:', newPrice.id);
+        console.log('Retail Price:', `$${retailPrice}`);
     } catch (error) {
         console.error('Error recreating product:', error);
     }

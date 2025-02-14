@@ -322,6 +322,8 @@ app.post('/webhook', async (req, res) => {
     console.log('Signature:', sig);
     
     let event;
+    let retryCount = 0;
+    const MAX_RETRIES = 3;
 
     try {
         // Try to parse the event with signature verification
@@ -350,131 +352,204 @@ app.post('/webhook', async (req, res) => {
             console.log('Customer details:', JSON.stringify(session.customer_details, null, 2));
             console.log('Shipping details:', JSON.stringify(session.shipping_details, null, 2));
             
-            try {
-                // Use the existing transporter instead of creating a new one
-                console.log('\n=== Fetching Session Line Items ===');
-                const sessionWithLineItems = await stripe.checkout.sessions.retrieve(session.id, {
-                    expand: ['line_items']
-                });
-                console.log('Line items:', JSON.stringify(sessionWithLineItems.line_items, null, 2));
+            const createPrintfulOrder = async () => {
+                try {
+                    // Use the existing transporter instead of creating a new one
+                    console.log('\n=== Fetching Session Line Items ===');
+                    const sessionWithLineItems = await stripe.checkout.sessions.retrieve(session.id, {
+                        expand: ['line_items', 'line_items.data.price.product']
+                    });
+                    console.log('Line items:', JSON.stringify(sessionWithLineItems.line_items, null, 2));
 
-                // Create order in Printful
-                console.log('\n=== Creating Printful Order ===');
-                const printfulOrder = {
-                    recipient: {
-                        name: session.shipping_details.name,
-                        address1: session.shipping_details.address.line1,
-                        address2: session.shipping_details.address.line2 || '',
-                        city: session.shipping_details.address.city,
-                        state_code: session.shipping_details.address.state,
-                        country_code: session.shipping_details.address.country,
-                        zip: session.shipping_details.address.postal_code,
-                        email: session.customer_details.email,
-                        phone: session.customer_details.phone || ''
-                    },
-                    items: sessionWithLineItems.line_items.data.map(item => ({
-                        sync_variant_id: item.price.product.metadata.printful_variant_id,
-                        quantity: item.quantity,
-                        retail_price: (item.amount_total / 100).toString()
-                    })),
-                    retail_costs: {
-                        subtotal: (sessionWithLineItems.amount_subtotal / 100).toString(),
-                        shipping: (sessionWithLineItems.total_details.amount_shipping / 100).toString(),
-                        tax: (sessionWithLineItems.total_details.amount_tax / 100).toString(),
-                        total: (sessionWithLineItems.amount_total / 100).toString()
-                    },
-                    gift: null,
-                    packing_slip: {
-                        email: process.env.EMAIL_USER,
-                        phone: '',
-                        message: 'Thank you for your order!'
+                    // Create order in Printful
+                    console.log('\n=== Creating Printful Order ===');
+                    const printfulOrder = {
+                        recipient: {
+                            name: session.shipping_details.name,
+                            address1: session.shipping_details.address.line1,
+                            address2: session.shipping_details.address.line2 || '',
+                            city: session.shipping_details.address.city,
+                            state_code: session.shipping_details.address.state,
+                            country_code: session.shipping_details.address.country,
+                            zip: session.shipping_details.address.postal_code,
+                            email: session.customer_details.email,
+                            phone: session.customer_details.phone || ''
+                        },
+                        items: sessionWithLineItems.line_items.data.map(item => {
+                            const variantId = item.price.product.metadata.printful_variant_id;
+                            console.log(`Mapping line item to Printful variant: ${variantId}`);
+                            return {
+                                sync_variant_id: variantId,
+                                quantity: item.quantity,
+                                retail_price: (item.amount_total / 100).toString()
+                            };
+                        }),
+                        retail_costs: {
+                            subtotal: (sessionWithLineItems.amount_subtotal / 100).toString(),
+                            shipping: (sessionWithLineItems.total_details.amount_shipping / 100).toString(),
+                            tax: (sessionWithLineItems.total_details.amount_tax / 100).toString(),
+                            total: (sessionWithLineItems.amount_total / 100).toString()
+                        },
+                        gift: null,
+                        packing_slip: {
+                            email: process.env.EMAIL_USER,
+                            phone: '',
+                            message: 'Thank you for your order!'
+                        }
+                    };
+
+                    // Create the order in Printful with retry logic
+                    let printfulResponse;
+                    while (retryCount < MAX_RETRIES) {
+                        try {
+                            printfulResponse = await fetch('https://api.printful.com/orders', {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${process.env.PRINTFUL_ACCESS_TOKEN}`,
+                                    'X-PF-Store-Id': process.env.PRINTFUL_STORE_ID,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify(printfulOrder)
+                            });
+
+                            if (!printfulResponse.ok) {
+                                const errorText = await printfulResponse.text();
+                                throw new Error(`Printful API error: ${errorText}`);
+                            }
+
+                            const printfulData = await printfulResponse.json();
+                            console.log('Printful order created successfully:', printfulData.result.id);
+
+                            // Store order status
+                            const orderStatus = {
+                                stripe_session_id: session.id,
+                                printful_order_id: printfulData.result.id,
+                                status: 'created',
+                                created_at: new Date().toISOString(),
+                                customer_email: session.customer_details.email
+                            };
+
+                            console.log('Order status:', orderStatus);
+                            
+                            // Send confirmation email
+                            await sendOrderConfirmationEmail(session, sessionWithLineItems, printfulData.result.id);
+                            
+                            return printfulData;
+                        } catch (error) {
+                            console.error(`Attempt ${retryCount + 1} failed:`, error);
+                            retryCount++;
+                            if (retryCount === MAX_RETRIES) {
+                                throw error;
+                            }
+                            // Exponential backoff
+                            await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+                        }
                     }
-                };
-
-                // Create the order in Printful
-                const printfulResponse = await fetch('https://api.printful.com/orders', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${process.env.PRINTFUL_ACCESS_TOKEN}`,
-                        'X-PF-Store-Id': process.env.PRINTFUL_STORE_ID,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(printfulOrder)
-                });
-
-                if (!printfulResponse.ok) {
-                    console.error('Error creating Printful order:', await printfulResponse.text());
-                    return res.status(500).json({ error: 'Failed to create Printful order' });
+                } catch (error) {
+                    console.error('Error creating Printful order:', error);
+                    // Send error notification to admin
+                    await sendErrorNotificationEmail(error, session);
+                    throw error;
                 }
+            };
 
-                const printfulResult = await printfulResponse.json();
-                console.log('Created Printful order:', printfulResult.result.id);
-
-                // Format shipping address
-                const shippingAddress = session.shipping_details.address;
-                const formattedAddress = shippingAddress ? `
-                    ${session.shipping_details.name}<br>
-                    ${shippingAddress.line1}<br>
-                    ${shippingAddress.line2 ? shippingAddress.line2 + '<br>' : ''}
-                    ${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.postal_code}<br>
-                    ${shippingAddress.country}
-                ` : 'No shipping address provided';
-
-                // Create email content
-                const items = sessionWithLineItems.line_items.data.map(item => 
-                    `${item.quantity}x ${item.description} - $${(item.amount_total / 100).toFixed(2)}`
-                ).join('\n');
-
-                const emailContent = `
-                    <h1>Thank you for your order from Weird Roach!</h1>
-                    <h2>Order Details:</h2>
-                    <pre>${items}</pre>
-                    <p><strong>Total:</strong> $${(sessionWithLineItems.amount_total / 100).toFixed(2)}</p>
-                    
-                    <h2>Shipping Address:</h2>
-                    <p>${formattedAddress}</p>
-                    
-                    <p>We'll send you another email when your order ships.</p>
-                    <p>Thanks for the support!</p>
-                `;
-
-                console.log('\n=== Sending Order Confirmation Email ===');
-                console.log('Customer email:', session.customer_details?.email);
-                
-                const emailResult = await transporter.sendMail({
-                    from: `"Weird Roach Store" <${process.env.EMAIL_USER}>`,
-                    to: session.customer_details?.email,
-                    subject: 'Order Confirmation - Weird Roach Store',
-                    html: emailContent,
-                    text: `Order Details:\n\n${items}\n\nTotal: $${(sessionWithLineItems.amount_total / 100).toFixed(2)}\n\nShipping to:\n${session.shipping_details.name}\n${shippingAddress?.line1}\n${shippingAddress?.line2 ? shippingAddress.line2 + '\n' : ''}${shippingAddress?.city}, ${shippingAddress?.state} ${shippingAddress?.postal_code}\n${shippingAddress?.country}\n\nWe'll send you another email when your order ships.\n\nThanks for the support!`,
-                    headers: {
-                        'X-Entity-Ref-ID': session.id,
-                        'X-Mailer': 'Weird Roach Store Mailer',
-                        'X-Priority': '1',
-                        'Importance': 'high'
-                    }
-                });
-                
-                console.log('Order confirmation email sent successfully!');
-                console.log('Email details:', {
-                    messageId: emailResult.messageId,
-                    accepted: emailResult.accepted,
-                    rejected: emailResult.rejected,
-                    response: emailResult.response,
-                    envelope: emailResult.envelope
+            try {
+                const printfulResult = await createPrintfulOrder();
+                return res.json({ 
+                    received: true,
+                    printful_order_id: printfulResult.result.id
                 });
             } catch (error) {
-                console.error('Error processing order:', error);
-                return res.status(500).json({ error: 'Failed to process order' });
+                console.error('Failed to create Printful order:', error);
+                // Return 200 to acknowledge webhook receipt but indicate error
+                return res.json({ 
+                    received: true,
+                    error: 'Failed to create Printful order',
+                    details: error.message
+                });
             }
         }
 
-        res.json({ received: true });
+        return res.json({ received: true });
     } catch (error) {
         console.error('Webhook error:', error);
-        res.status(500).json({ error: 'Webhook handler failed', details: error.message });
+        return res.status(500).json({ 
+            error: 'Webhook handler failed', 
+            details: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 });
+
+// Helper function to send order confirmation email
+async function sendOrderConfirmationEmail(session, sessionWithLineItems, printfulOrderId) {
+    const items = sessionWithLineItems.line_items.data
+        .map(item => `${item.quantity}x ${item.description} - $${(item.amount_total / 100).toFixed(2)}`)
+        .join('\n');
+
+    const shippingAddress = session.shipping_details.address;
+    
+    const emailContent = `
+        <h2>Order Confirmation</h2>
+        <p>Thank you for your order! Your order details are below:</p>
+        <p><strong>Order ID:</strong> ${printfulOrderId}</p>
+        <h3>Items:</h3>
+        <pre>${items}</pre>
+        <p><strong>Total:</strong> $${(session.amount_total / 100).toFixed(2)}</p>
+        <h3>Shipping Address:</h3>
+        <p>
+            ${session.shipping_details.name}<br>
+            ${shippingAddress.line1}<br>
+            ${shippingAddress.line2 ? shippingAddress.line2 + '<br>' : ''}
+            ${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.postal_code}<br>
+            ${shippingAddress.country}
+        </p>
+        <p>We'll send you another email when your order ships.</p>
+        <p>Thanks for the support!</p>
+    `;
+
+    await transporter.sendMail({
+        from: `"Weird Roach Store" <${process.env.EMAIL_USER}>`,
+        to: session.customer_details.email,
+        subject: 'Order Confirmation - Weird Roach Store',
+        html: emailContent,
+        text: `Order Details:\n\nOrder ID: ${printfulOrderId}\n\n${items}\n\nTotal: $${(session.amount_total / 100).toFixed(2)}\n\nShipping to:\n${session.shipping_details.name}\n${shippingAddress.line1}\n${shippingAddress.line2 ? shippingAddress.line2 + '\n' : ''}${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.postal_code}\n${shippingAddress.country}\n\nWe'll send you another email when your order ships.\n\nThanks for the support!`,
+        headers: {
+            'X-Entity-Ref-ID': session.id,
+            'X-Mailer': 'Weird Roach Store Mailer',
+            'X-Priority': '1',
+            'Importance': 'high'
+        }
+    });
+}
+
+// Helper function to send error notification email to admin
+async function sendErrorNotificationEmail(error, session) {
+    const emailContent = `
+        <h2>⚠️ Order Processing Error</h2>
+        <p>An error occurred while processing an order:</p>
+        <pre>${error.stack}</pre>
+        <h3>Order Details:</h3>
+        <p><strong>Session ID:</strong> ${session.id}</p>
+        <p><strong>Customer:</strong> ${session.customer_details.email}</p>
+        <p><strong>Amount:</strong> $${(session.amount_total / 100).toFixed(2)}</p>
+        <p>Please check the logs and handle this order manually if needed.</p>
+    `;
+
+    await transporter.sendMail({
+        from: `"Weird Roach Store" <${process.env.EMAIL_USER}>`,
+        to: process.env.EMAIL_USER, // Send to admin email
+        subject: '⚠️ Order Processing Error - Weird Roach Store',
+        html: emailContent,
+        text: `Order Processing Error\n\nAn error occurred while processing an order:\n\n${error.stack}\n\nOrder Details:\nSession ID: ${session.id}\nCustomer: ${session.customer_details.email}\nAmount: $${(session.amount_total / 100).toFixed(2)}\n\nPlease check the logs and handle this order manually if needed.`,
+        headers: {
+            'X-Entity-Ref-ID': session.id,
+            'X-Mailer': 'Weird Roach Store Mailer',
+            'X-Priority': '1',
+            'Importance': 'high'
+        }
+    });
+}
 
 // Error handling middleware
 app.use((err, req, res, next) => {

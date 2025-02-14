@@ -431,8 +431,22 @@ function addToCart(product) {
         return;
     }
 
-    const selectedVariant = product.variants.find(v => v.size === selectedSize);
-    if (selectedVariant && selectedVariant.stock_level !== 'made-to-order' && selectedVariant.stock_level <= 0) {
+    // Get the selected color
+    const selectedColorButton = document.querySelector(`#product-${product.id} .color-circle.selected`);
+    const selectedColor = selectedColorButton ? selectedColorButton.dataset.color : null;
+
+    // Find the exact variant based on size and color
+    const selectedVariant = product.variants.find(v => 
+        v.size === selectedSize && 
+        (!selectedColor || v.color.toLowerCase() === selectedColor.toLowerCase())
+    );
+
+    if (!selectedVariant) {
+        alert('Could not find the selected variant. Please try again.');
+        return;
+    }
+
+    if (selectedVariant.stock_level !== 'made-to-order' && selectedVariant.stock_level <= 0) {
         alert('Sorry, this item is out of stock');
         return;
     }
@@ -440,9 +454,12 @@ function addToCart(product) {
     const cartItem = {
         id: product.id,
         name: product.name,
-        price: product.retail_price,
+        price: selectedVariant.price,
         size: selectedSize,
-        quantity: 1
+        color: selectedColor,
+        quantity: 1,
+        variant_id: selectedVariant.id, // Store the Printful variant ID
+        image: getBestImageUrl(selectedVariant)
     };
 
     cart.push(cartItem);
@@ -464,6 +481,7 @@ function updateCartDisplay() {
             <div class="cart-item-details">
                 <h3>${item.name}</h3>
                 ${item.size ? `<p>Size: ${item.size}</p>` : ''}
+                ${item.color ? `<p>Color: ${item.color}</p>` : ''}
                 <p>$${item.price.toFixed(2)}</p>
             </div>
             <button onclick="removeFromCart(${index})" class="remove-item">&times;</button>
@@ -481,13 +499,40 @@ function removeFromCart(index) {
     updateCartDisplay();
 }
 
-function startCheckout() {
+async function startCheckout() {
     if (cart.length === 0) {
         alert('Your cart is empty');
         return;
     }
-    // TODO: Implement checkout process
-    alert('Checkout functionality coming soon!');
+
+    try {
+        const items = cart.map(item => ({
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            variant_id: item.variant_id, // Pass the Printful variant ID
+            image: item.image
+        }));
+
+        const response = await fetch('/api/create-checkout-session', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ items })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to create checkout session');
+        }
+
+        const { url } = await response.json();
+        window.location = url;
+    } catch (error) {
+        console.error('Checkout error:', error);
+        alert('Failed to start checkout: ' + error.message);
+    }
 }
 
 // Add CSS for loading spinner

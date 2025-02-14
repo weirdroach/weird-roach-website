@@ -152,8 +152,20 @@ export default async function handler(req, res) {
 
             // Check if product has required metadata
             if (!productWithMetadata.metadata.printful_variant_id) {
-                console.log('Product missing printful_variant_id in metadata, will use hardcoded mapping');
-                // Continue without metadata - we'll use the hardcoded mapping instead
+                console.error('Product is missing printful_variant_id:', {
+                    product_id: product.id,
+                    name: product.name,
+                    metadata: product.metadata
+                });
+                return res.status(400).json({
+                    status: 'error',
+                    message: `Product "${product.name}" is missing Printful variant ID in metadata`,
+                    details: {
+                        product_id: product.id,
+                        name: product.name,
+                        metadata: product.metadata
+                    }
+                });
             }
             
             lineItems.push({
@@ -232,27 +244,20 @@ export default async function handler(req, res) {
                     amount_total: item.amount_total
                 });
                 
+                if (!variantId) {
+                    console.error('Missing printful_variant_id in product metadata:', item.price.product);
+                    throw new Error(`Missing Printful variant ID for product: ${item.price.product.name}`);
+                }
+
                 // Get the sync variant ID from Printful
                 let syncVariantId;
-                if (item.description.toLowerCase().includes('french elephant pullover')) {
-                    syncVariantId = 14902; // French Elephant Pullover variant ID
-                } else if (item.description.toLowerCase().includes('french elephant')) {
-                    syncVariantId = 14904; // French Elephant T-shirt variant ID
+                if (item.description.toLowerCase().includes('french elephant')) {
+                    syncVariantId = 4711377369; // French Elephant variant ID
                 } else if (item.description.toLowerCase().includes('phuture')) {
-                    syncVariantId = 14903; // Phuture variant ID
+                    syncVariantId = 4711377370; // Phuture Times variant ID
                 } else {
                     syncVariantId = variantId; // Use the one from metadata for other products
                 }
-                
-                if (!syncVariantId) {
-                    console.error('Could not determine sync variant ID for product:', item.description);
-                    throw new Error(`Could not determine Printful variant ID for product: ${item.description}`);
-                }
-                
-                console.log('Using sync variant ID:', {
-                    description: item.description,
-                    syncVariantId: syncVariantId
-                });
                 
                 return {
                     sync_variant_id: syncVariantId,
