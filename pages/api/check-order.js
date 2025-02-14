@@ -232,11 +232,6 @@ export default async function handler(req, res) {
                     amount_total: item.amount_total
                 });
                 
-                if (!variantId) {
-                    console.error('Missing printful_variant_id in product metadata:', item.price.product);
-                    throw new Error(`Missing Printful variant ID for product: ${item.price.product.name}`);
-                }
-
                 // Get the sync variant ID from Printful
                 let syncVariantId;
                 if (item.description.toLowerCase().includes('french elephant pullover')) {
@@ -247,6 +242,11 @@ export default async function handler(req, res) {
                     syncVariantId = 14903; // Phuture variant ID
                 } else {
                     syncVariantId = variantId; // Use the one from metadata for other products
+                }
+                
+                if (!syncVariantId) {
+                    console.error('Could not determine sync variant ID for product:', item.description);
+                    throw new Error(`Could not determine Printful variant ID for product: ${item.description}`);
                 }
                 
                 console.log('Using sync variant ID:', {
