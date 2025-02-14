@@ -152,20 +152,8 @@ export default async function handler(req, res) {
 
             // Check if product has required metadata
             if (!productWithMetadata.metadata.printful_variant_id) {
-                console.error('Product is missing printful_variant_id:', {
-                    product_id: product.id,
-                    name: product.name,
-                    metadata: product.metadata
-                });
-                return res.status(400).json({
-                    status: 'error',
-                    message: `Product "${product.name}" is missing Printful variant ID in metadata`,
-                    details: {
-                        product_id: product.id,
-                        name: product.name,
-                        metadata: product.metadata
-                    }
-                });
+                console.log('Product missing printful_variant_id in metadata, will use hardcoded mapping');
+                // Continue without metadata - we'll use the hardcoded mapping instead
             }
             
             lineItems.push({
