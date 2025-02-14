@@ -251,13 +251,20 @@ export default async function handler(req, res) {
 
                 // Get the sync variant ID from Printful
                 let syncVariantId;
-                if (item.description.toLowerCase().includes('french elephant')) {
-                    syncVariantId = 4711377369; // French Elephant variant ID
+                if (item.description.toLowerCase().includes('french elephant pullover')) {
+                    syncVariantId = 14902; // French Elephant Pullover variant ID
+                } else if (item.description.toLowerCase().includes('french elephant')) {
+                    syncVariantId = 14904; // French Elephant T-shirt variant ID
                 } else if (item.description.toLowerCase().includes('phuture')) {
-                    syncVariantId = 4711377370; // Phuture Times variant ID
+                    syncVariantId = 14903; // Phuture variant ID
                 } else {
                     syncVariantId = variantId; // Use the one from metadata for other products
                 }
+                
+                console.log('Using sync variant ID:', {
+                    description: item.description,
+                    syncVariantId: syncVariantId
+                });
                 
                 return {
                     sync_variant_id: syncVariantId,
