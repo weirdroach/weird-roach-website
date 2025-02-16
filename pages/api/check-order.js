@@ -69,7 +69,7 @@ export default async function handler(req, res) {
         // Get the associated checkout session
         const sessions = await stripe.checkout.sessions.list({
             payment_intent: payment_intent,
-            expand: ['data.line_items', 'data.line_items.data.price.product']
+            expand: ['data.line_items']
         });
 
         if (!sessions.data.length) {
@@ -80,7 +80,7 @@ export default async function handler(req, res) {
         console.log('Found checkout session:', session.id);
 
         // French Elephant Pullover - Black (XL) variant ID mapping
-        const FRENCH_ELEPHANT_XL_BLACK_VARIANT_ID = '14904';
+        const FRENCH_ELEPHANT_XL_BLACK_VARIANT_ID = 14904;
 
         // Create Printful order
         const printfulOrder = {
