@@ -67,6 +67,7 @@ const transporter = nodemailer.createTransport({
     authMethod: 'PLAIN'
 });
 
+// This is a special config for Vercel Serverless Functions
 export const config = {
     api: {
         bodyParser: false,
@@ -93,10 +94,11 @@ export default async function handler(req, res) {
         const rawBody = await buffer(req);
         const signature = req.headers['stripe-signature'];
 
-        console.log('\n=== Received Webhook Request ===');
-        console.log('Timestamp:', new Date().toISOString());
-        console.log('Signature:', signature);
-        console.log('Raw Body:', rawBody.toString());
+        console.log('Received webhook request:', {
+            timestamp: new Date().toISOString(),
+            signature: signature,
+            rawBody: rawBody.toString()
+        });
 
         let event;
         try {
@@ -105,9 +107,7 @@ export default async function handler(req, res) {
                 signature,
                 process.env.STRIPE_WEBHOOK_SECRET
             );
-            console.log('\n=== Webhook Event ===');
-            console.log('Event Type:', event.type);
-            console.log('Event Data:', JSON.stringify(event.data, null, 2));
+            console.log('Webhook event constructed:', event.type);
         } catch (err) {
             console.error('Webhook signature verification failed:', err.message);
             return res.status(400).json({ error: `Webhook Error: ${err.message}` });
