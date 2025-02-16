@@ -80,7 +80,8 @@ export default async function handler(req, res) {
         console.log('Found checkout session:', session.id);
 
         // French Elephant Pullover - Black (XL) variant ID mapping
-        const FRENCH_ELEPHANT_XL_BLACK_VARIANT_ID = 14904;
+        // Format: sync_product_id:variant_id
+        const FRENCH_ELEPHANT_XL_BLACK_VARIANT_ID = '4711377369:14904';
 
         // Create Printful order
         const printfulOrder = {
