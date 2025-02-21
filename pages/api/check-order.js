@@ -1,15 +1,13 @@
 import Stripe from 'stripe';
 import fetch from 'node-fetch';
 import nodemailer from 'nodemailer';
-import fs from 'fs';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const PRINTFUL_API_URL = 'https://api.printful.com';
 const PRINTFUL_ACCESS_TOKEN = process.env.PRINTFUL_ACCESS_TOKEN;
 const PRINTFUL_STORE_ID = process.env.PRINTFUL_STORE_ID;
-const LOG_FILE = 'server.log';
 
-// Utility function to log events
+// Utility function to log events (now works with Vercel)
 const logEvent = (message, data = null) => {
     const timestamp = new Date().toISOString();
     const logMessage = `[${timestamp}] ${message}`;
@@ -17,12 +15,6 @@ const logEvent = (message, data = null) => {
     console.log(logMessage);
     if (data) {
         console.log(JSON.stringify(data, null, 2));
-    }
-
-    // Append logs to a file for persistence
-    fs.appendFileSync(LOG_FILE, `${logMessage}\n`);
-    if (data) {
-        fs.appendFileSync(LOG_FILE, `${JSON.stringify(data, null, 2)}\n`);
     }
 };
 
@@ -58,7 +50,7 @@ const makePrintfulRequest = async (endpoint, options = {}) => {
             json: responseText ? JSON.parse(responseText) : null
         };
     } catch (error) {
-        logEvent('Printful API Error', error);
+        logEvent('Printful API Error', { error: error.message, stack: error.stack });
         throw error;
     }
 };
@@ -81,7 +73,7 @@ export default async function handler(req, res) {
         logEvent('Retrieving Payment Intent', { payment_intent });
 
         const paymentIntent = await stripe.paymentIntents.retrieve(payment_intent);
-        logEvent('Payment Intent Retrieved', { status: paymentIntent.status });
+        logEvent('Stripe Payment Intent Retrieved', paymentIntent);
 
         if (paymentIntent.status !== 'succeeded') {
             logEvent('Payment Not Succeeded', { status: paymentIntent.status });
@@ -96,6 +88,8 @@ export default async function handler(req, res) {
             payment_intent: payment_intent,
             expand: ['data.line_items']
         });
+
+        logEvent('Stripe Checkout Sessions List', { sessions: sessions.data });
 
         if (!sessions.data.length) {
             logEvent('No Checkout Session Found');
