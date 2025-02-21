@@ -1,45 +1,77 @@
 import Stripe from 'stripe';
 import fetch from 'node-fetch';
+import fs from 'fs';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 const PRINTFUL_API_URL = 'https://api.printful.com';
 const PRINTFUL_ACCESS_TOKEN = process.env.PRINTFUL_ACCESS_TOKEN;
 const PRINTFUL_STORE_ID = process.env.PRINTFUL_STORE_ID;
+const LOG_FILE = 'server.log';
+
+// Function to log events for debugging in Vercel & locally
+const logEvent = (message, data = null) => {
+    const timestamp = new Date().toISOString();
+    const logMessage = `[${timestamp}] ${message}`;
+
+    console.log(logMessage);
+    if (data) {
+        console.log(JSON.stringify(data, null, 2));
+    }
+
+    // Write logs to a file for local debugging (not persistent on Vercel)
+    try {
+        fs.appendFileSync(LOG_FILE, `${logMessage}\n`);
+        if (data) {
+            fs.appendFileSync(LOG_FILE, `${JSON.stringify(data, null, 2)}\n`);
+        }
+    } catch (err) {
+        console.error('Failed to write to log file', err);
+    }
+};
 
 // Function to make authenticated Printful API requests
 const makePrintfulRequest = async (endpoint, options = {}) => {
-    console.log('\n=== Making Printful Request ===');
-    console.log('Endpoint:', endpoint);
-    console.log('Options:', JSON.stringify(options, null, 2));
+    logEvent('Making Printful Request', { endpoint, options });
 
-    const response = await fetch(`${PRINTFUL_API_URL}${endpoint}`, {
-        ...options,
-        headers: {
-            ...options.headers,
-            'Authorization': `Bearer ${PRINTFUL_ACCESS_TOKEN}`,
-            'X-PF-Store-Id': PRINTFUL_STORE_ID,
-            'Content-Type': 'application/json'
+    try {
+        const response = await fetch(`${PRINTFUL_API_URL}${endpoint}`, {
+            ...options,
+            headers: {
+                ...options.headers,
+                'Authorization': `Bearer ${PRINTFUL_ACCESS_TOKEN}`,
+                'X-PF-Store-Id': PRINTFUL_STORE_ID,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const responseText = await response.text();
+        logEvent('Printful Response', {
+            status: response.status,
+            headers: response.headers.raw(),
+            body: responseText
+        });
+
+        if (!response.ok) {
+            logEvent('Printful API Error', { status: response.status, responseText });
+            throw new Error(`Printful API error: ${responseText}`);
         }
-    });
 
-    const responseText = await response.text();
-    console.log('Printful Response Status:', response.status);
-    console.log('Printful Response Headers:', response.headers);
-    console.log('Printful Response Body:', responseText);
-
-    if (!response.ok) {
-        throw new Error(`Printful API error: ${responseText}`);
+        return {
+            ok: response.ok,
+            status: response.status,
+            json: responseText ? JSON.parse(responseText) : null
+        };
+    } catch (error) {
+        logEvent('Printful API Request Failed', { error: error.message, stack: error.stack });
+        throw error;
     }
-
-    return { 
-        ok: response.ok,
-        status: response.status,
-        json: responseText ? JSON.parse(responseText) : null
-    };
 };
 
+// API Route Handler
 export default async function handler(req, res) {
-    // Enable CORS
+    logEvent('Incoming Request', { method: req.method, body: req.body });
+
+    // CORS Handling
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
@@ -49,43 +81,45 @@ export default async function handler(req, res) {
     );
 
     if (req.method === 'OPTIONS') {
+        logEvent('CORS Preflight Response');
         return res.status(200).end();
     }
 
     if (req.method !== 'POST') {
+        logEvent('Invalid Method Access', { method: req.method });
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
     try {
         const { paymentIntentId } = req.body;
-        
         if (!paymentIntentId) {
+            logEvent('Missing Payment Intent ID');
             return res.status(400).json({ error: 'Payment Intent ID is required' });
         }
 
-        console.log('\n=== Processing Payment Intent ===');
-        console.log('Payment Intent ID:', paymentIntentId);
+        logEvent('Retrieving Payment Intent from Stripe', { paymentIntentId });
 
-        // Retrieve the payment intent
         const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId, {
             expand: ['charges.data.shipping']
         });
-        console.log('Payment Intent:', JSON.stringify(paymentIntent, null, 2));
 
-        // Get the session that created this payment
+        logEvent('Stripe Payment Intent Retrieved', { status: paymentIntent.status, paymentIntent });
+
+        // Fetch Stripe Checkout Session
         const sessions = await stripe.checkout.sessions.list({
             payment_intent: paymentIntentId,
             expand: ['data.line_items']
         });
-        
+
         if (!sessions.data.length) {
+            logEvent('No Stripe Checkout Session Found', { paymentIntentId });
             throw new Error('No session found for this payment intent');
         }
 
         const session = sessions.data[0];
-        console.log('Session:', JSON.stringify(session, null, 2));
+        logEvent('Stripe Checkout Session Retrieved', { sessionId: session.id, session });
 
-        // Create Printful order
+        // Create Printful Order
         const printfulOrder = {
             recipient: {
                 name: session.shipping_details.name,
@@ -117,13 +151,15 @@ export default async function handler(req, res) {
             }
         };
 
-        console.log('Printful Order:', JSON.stringify(printfulOrder, null, 2));
+        logEvent('Printful Order Prepared', printfulOrder);
 
-        // Create the order in Printful
+        // Send Order to Printful
         const printfulResponse = await makePrintfulRequest('/orders', {
             method: 'POST',
             body: JSON.stringify(printfulOrder)
         });
+
+        logEvent('Printful Order Created Successfully', { printfulOrderId: printfulResponse.json.result.id });
 
         return res.json({
             success: true,
@@ -131,12 +167,13 @@ export default async function handler(req, res) {
             payment_intent: paymentIntent.id,
             session: session.id
         });
+
     } catch (error) {
-        console.error('Error processing payment:', error);
+        logEvent('Error Processing Order', { error: error.message, stack: error.stack });
         return res.status(500).json({
             error: 'Failed to process payment',
             details: error.message,
             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
-} 
+}
