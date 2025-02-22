@@ -8,9 +8,12 @@ const PRINTFUL_API_URL = 'https://api.printful.com';
 const PRINTFUL_ACCESS_TOKEN = process.env.PRINTFUL_ACCESS_TOKEN;
 const PRINTFUL_STORE_ID = process.env.PRINTFUL_STORE_ID;
 
+// Default fallback variant ID (CHANGE THIS TO A REAL ONE)
+const FALLBACK_VARIANT_ID = 14904;
+
 // Function to make authenticated Printful API requests
 const makePrintfulRequest = async (endpoint, options = {}) => {
-    console.log(`\n🔍 Fetching Printful: ${endpoint}`);
+    console.log(`🔍 Fetching Printful: ${endpoint}`);
 
     const response = await fetch(`${PRINTFUL_API_URL}${endpoint}`, {
         ...options,
@@ -22,37 +25,43 @@ const makePrintfulRequest = async (endpoint, options = {}) => {
         }
     });
 
+    const responseText = await response.text();
     if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`❌ Printful API Error (${response.status}): ${errorText}`);
-        throw new Error(`Printful API error: ${response.status}`);
+        console.error(`❌ Printful API Error: ${response.status} - ${responseText}`);
+        return null;
     }
 
-    return response.json();
+    return responseText ? JSON.parse(responseText) : null;
 };
 
-// Function to fetch Printful variant ID by product name
+// Function to get Printful Variant ID from product name
 const getPrintfulVariantId = async (productName) => {
     try {
         console.log(`🔍 Searching Printful for variant of "${productName}"`);
 
         const printfulProducts = await makePrintfulRequest('/sync/products');
+        if (!printfulProducts || !printfulProducts.result) {
+            console.warn(`❌ No products found in Printful`);
+            return FALLBACK_VARIANT_ID;
+        }
 
         for (const product of printfulProducts.result) {
-            if (product.name.toLowerCase() === productName.toLowerCase()) {
+            if (product.name.trim().toLowerCase() === productName.trim().toLowerCase()) {
                 const productDetails = await makePrintfulRequest(`/sync/products/${product.id}`);
-                const variantId = productDetails.result.sync_variants[0]?.id || null;
+                const variantId = productDetails?.result?.sync_variants[0]?.id || null;
 
-                console.log(`✅ Found Printful Variant ID: ${variantId} for "${productName}"`);
-                return variantId;
+                if (variantId) {
+                    console.log(`✅ Found Printful Variant ID: ${variantId} for "${productName}"`);
+                    return variantId;
+                }
             }
         }
 
-        console.warn(`❌ No variant ID found for "${productName}"`);
-        return null;
+        console.warn(`❌ No variant ID found for "${productName}", using fallback.`);
+        return FALLBACK_VARIANT_ID;
     } catch (error) {
         console.error(`❌ Error fetching Printful Variant ID:`, error);
-        return null;
+        return FALLBACK_VARIANT_ID;
     }
 };
 
@@ -73,7 +82,8 @@ const transporter = nodemailer.createTransport({
     },
     pool: true,
     maxConnections: 1,
-    maxMessages: Infinity
+    maxMessages: Infinity,
+    authMethod: 'PLAIN'
 });
 
 // This is a special config for Vercel Serverless Functions
@@ -92,36 +102,51 @@ export default async function handler(req, res) {
         const rawBody = await buffer(req);
         const signature = req.headers['stripe-signature'];
 
-        console.log('📩 Received webhook request:', {
+        console.log(`📩 Received webhook request:`, {
             timestamp: new Date().toISOString(),
-            signature: signature,
-            rawBody: rawBody.toString()
+            signature,
+            rawBody: rawBody.toString().slice(0, 200) + '...'
         });
 
         let event;
         try {
-            event = stripe.webhooks.constructEvent(
-                rawBody,
-                signature,
-                process.env.STRIPE_WEBHOOK_SECRET
-            );
-            console.log('✅ Webhook event constructed:', event.type);
+            event = stripe.webhooks.constructEvent(rawBody, signature, process.env.STRIPE_WEBHOOK_SECRET);
+            console.log(`✅ Webhook event constructed: ${event.type}`);
         } catch (err) {
-            console.error('❌ Webhook signature verification failed:', err.message);
+            console.error(`❌ Webhook signature verification failed:`, err.message);
             return res.status(400).json({ error: `Webhook Error: ${err.message}` });
         }
 
         if (event.type === 'checkout.session.completed') {
             const session = event.data.object;
-            console.log('🛒 Processing Checkout Session:', session.id);
+            console.log(`🛒 Processing Checkout Session: ${session.id}`);
 
             try {
+                console.log(`🛍️ Retrieving Session Details`);
                 const sessionWithLineItems = await stripe.checkout.sessions.retrieve(session.id, {
                     expand: ['line_items', 'line_items.data.price.product']
                 });
 
-                console.log('🛍️ Session Line Items:', JSON.stringify(sessionWithLineItems.line_items, null, 2));
+                console.log(`🛍️ Session Line Items:`, JSON.stringify(sessionWithLineItems.line_items, null, 2));
 
+                // Process each item
+                const orderItems = [];
+                for (const item of sessionWithLineItems.line_items.data) {
+                    const productName = item.description.trim();
+                    const variantId = await getPrintfulVariantId(productName);
+
+                    orderItems.push({
+                        sync_variant_id: variantId,
+                        quantity: item.quantity,
+                        retail_price: (item.amount_total / 100).toString()
+                    });
+                }
+
+                if (orderItems.length === 0) {
+                    throw new Error('❌ No valid items found to send to Printful');
+                }
+
+                // Create Printful Order
                 const printfulOrder = {
                     recipient: {
                         name: session.shipping_details.name,
@@ -134,7 +159,7 @@ export default async function handler(req, res) {
                         email: session.customer_details.email,
                         phone: session.customer_details.phone || ''
                     },
-                    items: [],
+                    items: orderItems,
                     retail_costs: {
                         subtotal: (sessionWithLineItems.amount_subtotal / 100).toString(),
                         shipping: (sessionWithLineItems.total_details.amount_shipping / 100).toString(),
@@ -149,47 +174,33 @@ export default async function handler(req, res) {
                     }
                 };
 
-                for (const item of sessionWithLineItems.line_items.data) {
-                    const variantId = await getPrintfulVariantId(item.description);
-                    
-                    if (!variantId) {
-                        console.error(`❌ Missing Printful Variant ID for ${item.description}`);
-                        continue;
-                    }
-
-                    printfulOrder.items.push({
-                        sync_variant_id: variantId,
-                        quantity: item.quantity,
-                        retail_price: (item.amount_total / 100).toString()
-                    });
-                }
-
-                if (printfulOrder.items.length === 0) {
-                    throw new Error('❌ No valid items found to send to Printful');
-                }
-
-                console.log('📦 Printful Order Data:', JSON.stringify(printfulOrder, null, 2));
+                console.log(`📦 Creating Printful Order:`, JSON.stringify(printfulOrder, null, 2));
 
                 const printfulResponse = await makePrintfulRequest('/orders', {
                     method: 'POST',
                     body: JSON.stringify(printfulOrder)
                 });
 
-                console.log('✅ Printful order created:', printfulResponse.json.result.id);
+                if (!printfulResponse || !printfulResponse.result) {
+                    throw new Error(`Failed to create Printful order: ${JSON.stringify(printfulResponse)}`);
+                }
 
-                return res.json({
-                    received: true,
-                    printful_order_id: printfulResponse.json.result.id
-                });
+                console.log(`✅ Printful Order Created: ${printfulResponse.result.id}`);
+
+                return res.json({ received: true, printful_order_id: printfulResponse.result.id });
             } catch (error) {
-                console.error('❌ Error processing order:', error);
-                return res.status(500).json({ error: 'Webhook handler failed', details: error.message });
+                console.error(`❌ Error processing order:`, error);
+                return res.status(500).json({ error: 'Failed to process order', details: error.message });
             }
         }
 
         return res.json({ received: true });
     } catch (error) {
-        console.error('❌ Webhook error:', error);
-        return res.status(500).json({ error: 'Webhook handler failed', details: error.message });
+        console.error(`❌ Webhook error:`, error);
+        return res.status(500).json({
+            error: 'Webhook handler failed',
+            details: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 }
