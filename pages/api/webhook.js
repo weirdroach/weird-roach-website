@@ -3,31 +3,50 @@ import fetch from "node-fetch";
 const PRINTFUL_API_URL = "https://api.printful.com";
 const PRINTFUL_ACCESS_TOKEN = process.env.PRINTFUL_ACCESS_TOKEN;
 const PRINTFUL_STORE_ID = process.env.PRINTFUL_STORE_ID;
-const FALLBACK_VARIANT_ID = 14904;  // Safety fallback
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
+const FALLBACK_VARIANT_ID = 14904; // Safety fallback
 const FALLBACK_IMAGE_URL = "https://yourdomain.com/path-to-default-design.jpg"; // Default print file
-const PRODUCTS_API_URL = "https://www.weirdroach.com/api/products";  // Your API
+const PRODUCTS_API_URL = "https://www.weirdroach.com/api/products"; // Your API
 
 // ✅ Fetch product variants from Weird Roach API
 const getVariantIdFromWeirdRoach = async (productName) => {
     try {
+        console.log("🔍 Fetching variants from Weird Roach API...");
         const response = await fetch(PRODUCTS_API_URL);
+        
+        if (!response.ok) {
+            console.error(`❌ Weird Roach API request failed: ${response.status}`);
+            return { variant_id: FALLBACK_VARIANT_ID, image_url: FALLBACK_IMAGE_URL };
+        }
+
         const products = await response.json();
+        if (!products || products.length === 0) {
+            console.error("❌ Weird Roach API returned empty response.");
+            return { variant_id: FALLBACK_VARIANT_ID, image_url: FALLBACK_IMAGE_URL };
+        }
 
         for (const product of products) {
             for (const variant of product.variants) {
-                if (productName.includes(variant.name)) {
+                // Normalize product names to improve matching
+                const stripeName = productName.toLowerCase().replace(/[^a-z0-9]/gi, "");
+                const apiVariantName = variant.name.toLowerCase().replace(/[^a-z0-9]/gi, "");
+
+                if (stripeName.includes(apiVariantName) || apiVariantName.includes(stripeName)) {
                     console.log(`✅ Found Variant ID: ${variant.id} for "${productName}"`);
                     return {
                         variant_id: variant.id,
                         image_url: variant.preview_url || FALLBACK_IMAGE_URL,
+                        price: variant.price || null,
                     };
                 }
             }
         }
+
+        console.warn(`⚠️ No variant found for "${productName}". Using fallback.`);
     } catch (error) {
         console.error("❌ Error fetching Weird Roach products:", error);
     }
-    return { variant_id: FALLBACK_VARIANT_ID, image_url: FALLBACK_IMAGE_URL };
+    return { variant_id: FALLBACK_VARIANT_ID, image_url: FALLBACK_IMAGE_URL, price: null };
 };
 
 // ✅ Webhook Handler
@@ -46,24 +65,31 @@ export default async function handler(req, res) {
         // ✅ Fetch line items from Stripe session
         const lineItemsResponse = await fetch(
             `https://api.stripe.com/v1/checkout/sessions/${session.id}/line_items`,
-            { headers: { Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}` } }
+            {
+                headers: { Authorization: `Bearer ${STRIPE_SECRET_KEY}` },
+            }
         );
+
         const lineItems = await lineItemsResponse.json();
+        if (!lineItems.data || lineItems.data.length === 0) {
+            console.error("❌ No items found in Stripe session.");
+            return res.status(400).json({ error: "No valid items found for Printful" });
+        }
 
         let items = [];
         for (const item of lineItems.data) {
             const productName = item.description;
             console.log("🔍 Searching for variant of:", productName);
 
-            const { variant_id, image_url } = await getVariantIdFromWeirdRoach(productName);
+            const { variant_id, image_url, price } = await getVariantIdFromWeirdRoach(productName);
 
             items.push({
                 variant_id,
                 quantity: item.quantity,
-                retail_price: (item.amount_subtotal / 100).toFixed(2),
+                retail_price: price || (item.amount_subtotal / 100).toFixed(2), // Prefer API price
                 files: [
                     {
-                        url: image_url,  // ✅ Correct image for Printful
+                        url: image_url, // ✅ Correct image for Printful
                         placement: "default",
                     },
                 ],
