@@ -2,32 +2,35 @@ import fetch from "node-fetch";
 
 const PRINTFUL_API_URL = "https://api.printful.com";
 const PRINTFUL_ACCESS_TOKEN = process.env.PRINTFUL_ACCESS_TOKEN;
-const PRINTFUL_STORE_ID = process.env.PRINTFUL_STORE_ID; // Store ID now required
+const PRINTFUL_STORE_ID = process.env.PRINTFUL_STORE_ID;
+const FALLBACK_VARIANT_ID = 14904;  // Safety fallback
+const FALLBACK_IMAGE_URL = "https://yourdomain.com/path-to-default-design.jpg"; // Default print file
+const PRODUCTS_API_URL = "https://www.weirdroach.com/api/products";  // Your API
 
-// ✅ Fallback Variant ID
-const FALLBACK_VARIANT_ID = 14904;
-
-// Function to fetch the correct variant_id
-const getPrintfulVariantId = async (productName) => {
+// ✅ Fetch product variants from Weird Roach API
+const getVariantIdFromWeirdRoach = async (productName) => {
     try {
-        const response = await fetch(`${PRINTFUL_API_URL}/sync/products`, {
-            headers: { Authorization: `Bearer ${PRINTFUL_ACCESS_TOKEN}` },
-        });
-        const data = await response.json();
+        const response = await fetch(PRODUCTS_API_URL);
+        const products = await response.json();
 
-        for (const product of data.result) {
-            if (product.name.includes(productName)) {
-                const firstVariant = product.sync_variants?.[0]?.variant_id;
-                if (firstVariant) return firstVariant;
+        for (const product of products) {
+            for (const variant of product.variants) {
+                if (productName.includes(variant.name)) {
+                    console.log(`✅ Found Variant ID: ${variant.id} for "${productName}"`);
+                    return {
+                        variant_id: variant.id,
+                        image_url: variant.preview_url || FALLBACK_IMAGE_URL,
+                    };
+                }
             }
         }
     } catch (error) {
-        console.error("❌ Error fetching Printful variants:", error);
+        console.error("❌ Error fetching Weird Roach products:", error);
     }
-    return FALLBACK_VARIANT_ID; // Use fallback if no variant is found
+    return { variant_id: FALLBACK_VARIANT_ID, image_url: FALLBACK_IMAGE_URL };
 };
 
-// Webhook handler
+// ✅ Webhook Handler
 export default async function handler(req, res) {
     try {
         if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
@@ -40,7 +43,7 @@ export default async function handler(req, res) {
         console.log("🛒 Processing Checkout Session:", event.data.object.id);
         const session = event.data.object;
 
-        // Fetch line items from Stripe session
+        // ✅ Fetch line items from Stripe session
         const lineItemsResponse = await fetch(
             `https://api.stripe.com/v1/checkout/sessions/${session.id}/line_items`,
             { headers: { Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}` } }
@@ -50,15 +53,20 @@ export default async function handler(req, res) {
         let items = [];
         for (const item of lineItems.data) {
             const productName = item.description;
-            console.log("🔍 Searching Printful for variant of:", productName);
+            console.log("🔍 Searching for variant of:", productName);
 
-            const variantId = await getPrintfulVariantId(productName);
-            console.log(`✅ Found Variant ID: ${variantId} for "${productName}"`);
+            const { variant_id, image_url } = await getVariantIdFromWeirdRoach(productName);
 
             items.push({
-                variant_id: variantId,
+                variant_id,
                 quantity: item.quantity,
                 retail_price: (item.amount_subtotal / 100).toFixed(2),
+                files: [
+                    {
+                        url: image_url,  // ✅ Correct image for Printful
+                        placement: "default",
+                    },
+                ],
             });
         }
 
@@ -67,9 +75,9 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: "No valid items found for Printful" });
         }
 
-        // Create Printful Order
+        // ✅ Create Printful Order
         const printfulPayload = {
-            store_id: PRINTFUL_STORE_ID, // ✅ Store ID is now included
+            store_id: PRINTFUL_STORE_ID,
             recipient: {
                 name: session.customer_details.name,
                 address1: session.customer_details.address.line1,
@@ -93,7 +101,7 @@ export default async function handler(req, res) {
                 phone: "",
                 message: "Thank you for your order!",
             },
-            confirm: true, // Auto-confirm order
+            confirm: true,
         };
 
         console.log("📦 Sending Order to Printful:", JSON.stringify(printfulPayload, null, 2));
