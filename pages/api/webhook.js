@@ -9,7 +9,7 @@ const PRINTFUL_ACCESS_TOKEN = process.env.PRINTFUL_ACCESS_TOKEN;
 const PRINTFUL_STORE_ID = process.env.PRINTFUL_STORE_ID;
 
 // Default fallback variant ID (CHANGE THIS TO A REAL ONE)
-const FALLBACK_VARIANT_ID = 3287825741;
+const FALLBACK_VARIANT_ID = 14904;
 //update id set real
 
 // Function to make authenticated Printful API requests
