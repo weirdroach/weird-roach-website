@@ -32,11 +32,11 @@ const getVariantIdFromWeirdRoach = async (productName) => {
                 const apiVariantName = variant.name.toLowerCase().replace(/[^a-z0-9]/gi, "");
 
                 if (stripeName.includes(apiVariantName) || apiVariantName.includes(stripeName)) {
-                    console.log(`✅ Found Variant ID: ${variant.id} for "${productName}"`);
+                    console.log(`✅ Found Variant ID: ${variant.variant_id} for "${productName}"`);
                     return {
-                        variant_id: variant.id,
-                        image_url: variant.preview_url || FALLBACK_IMAGE_URL,
-                        price: variant.price || null,
+                        variant_id: variant.variant_id,
+                        image_url: variant.file?.preview_url || FALLBACK_IMAGE_URL,
+                        price: variant.retail_price || null,
                     };
                 }
             }
