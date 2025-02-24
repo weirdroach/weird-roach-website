@@ -87,7 +87,7 @@ export default async function handler(req, res) {
                 quantity: item.quantity,
                 retail_price: price || (item.amount_subtotal / 100).toFixed(2) // Prefer API price
             });
-                
+        }  // Added missing closing brace
 
         if (!items.length) {
             console.error("❌ No valid items found.");
