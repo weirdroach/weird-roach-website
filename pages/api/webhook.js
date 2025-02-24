@@ -87,6 +87,7 @@ export default async function handler(req, res) {
             console.log("🔍 Searching for variant of:", productName);
 
             const { sync_variant_id, price } = await getVariantIdFromWeirdRoach(productName);
+            console.log("Debug - variant data:", { sync_variant_id, price });
             items.push({
                 sync_variant_id,
                 quantity: item.quantity,
