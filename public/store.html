@@ -1,142 +1,686 @@
-<script>
-    // Fetch products from API
-    async function loadProducts() {
-        const productsGrid = document.getElementById('products-grid');
-        try {
-            showLoadingState();
-            const response = await fetch('/api/products');
-
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-            const products = await response.json();
-            hideLoadingState();
-            displayProducts(products);
-        } catch (error) {
-            console.error('Error loading products:', error);
-            hideLoadingState();
-            productsGrid.innerHTML = `<div class="error-message"><p>Error loading products. ${error.message}</p></div>`;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://*.stripe.com https://*.printful.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.stripe.com https://*.stripe.network js.stripe.com https://m.stripe.network https://m.stripe.com; connect-src 'self' http://localhost:* https://*.stripe.com https://api.stripe.com https://m.stripe.com https://*.stripe.network https://m.stripe.network https://api.printful.com https://*.printful.com https://js.stripe.com; style-src 'self' 'unsafe-inline' https://*.stripe.com; img-src 'self' https://*.stripe.com https://*.printful.com data: blob: *; frame-src 'self' https://*.stripe.com https://*.stripe.network https://js.stripe.com https://m.stripe.network https://m.stripe.com; worker-src 'self' blob: https://*.stripe.com https://*.stripe.network; child-src 'self' blob: https://*.stripe.com https://*.stripe.network; font-src 'self' data:; form-action 'self' https://*.stripe.com;">
+    <title>Store - Weird Roach</title>
+    <link rel="icon" type="image/png" href="assets/weirdroach logo (transparent).png">
+    <link rel="stylesheet" href="css/store.css">
+    <script>
+        // Force HTTPS only in production
+        if (window.location.hostname !== 'localhost' && window.location.protocol === 'http:') {
+            window.location.href = window.location.href.replace('http:', 'https:');
         }
-    }
+    </script>
+    <script src="https://js.stripe.com/v3/" async></script>
+</head>
+<body>
+    <header>
+        <a href="index.html">
+            <img src="assets/weirdroach logo (transparent).png" alt="Weird Roach logo - return to home page">
+        </a>
+        <nav aria-label="Main navigation">
+            <ul class="nav-links">
+                <li><a href="sounds.html">
+                    <img src="assets/menu/Music_1.png" alt="Sounds page">
+                </a></li>
+                <li><a href="visuals.html">
+                    <img src="assets/menu/Visuals_1.png" alt="Visuals page">
+                </a></li>
+                <li><a href="store.html" aria-current="page">
+                    <img src="assets/menu/Store_1.png" alt="Store page">
+                </a></li>
+                <li><a href="contact.html">
+                    <img src="assets/menu/Contact_1.png" alt="Contact page">
+                </a></li>
+            </ul>
+        </nav>
+    </header>
 
-    function displayProducts(products) {
-        const grid = document.getElementById('products-grid');
-        grid.innerHTML = '';
+    <main>
+        <h1 class="visually-hidden">Weird Roach Store</h1>
+        
+        <!-- Add Cart Toggle Button -->
+        <button class="cart-toggle">
+            <span class="cart-icon">🛒</span>
+            <span class="cart-count">0</span>
+        </button>
 
-        products.forEach(product => {
-            const productElement = document.createElement('article');
-            productElement.className = 'product-item';
-
-            const variants = product.variants || [];
-            const firstVariant = variants[0] || {};
-            let imageUrl = firstVariant.preview_url || product.thumbnail_url;
-            let price = firstVariant.price || '0.00';
-
-            productElement.innerHTML = `
-                <div class="product-image-container">
-                    <img src="${imageUrl}" alt="${product.name}" class="product-image" onclick="openModal('${imageUrl}', '${product.name}')">
+        <!-- Add Cart Sidebar -->
+        <div class="cart-sidebar">
+            <div class="cart-header">
+                <h2>Shopping Cart</h2>
+                <button class="close-cart">×</button>
+            </div>
+            <div class="cart-items">
+                <!-- Cart items will be added here dynamically -->
+            </div>
+            <div class="cart-footer">
+                <div class="cart-total">
+                    <span>Total:</span>
+                    <span>$0.00</span>
                 </div>
-                <div class="product-details">
-                    <h2 class="product-name">${product.name}</h2>
-                    <p class="product-price">$${price}</p>
-                    
-                    <div class="size-select">
-                        <select id="size-${product.id}">
-                            <option value="">Select Size</option>
-                            ${variants.map(v => `<option value="${v.id}" data-price="${v.price}">${v.size}</option>`).join('')}
-                        </select>
-                    </div>
+                <button class="checkout-button" disabled>Proceed to Checkout</button>
+            </div>
+        </div>
 
-                    <button class="add-to-cart-button" onclick="addToCart('${product.name}', '${product.id}')">
-                        Add to Cart
-                    </button>
+        <div class="store-container">
+            <div id="products-grid" class="products-grid">
+                <!-- Products will be loaded here dynamically -->
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <p>Loading products...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="social-links">
+            <div class="social-icons">
+                <a href="https://instagram.com/weirdroach/" target="_blank" class="social-icon">
+                    <img src="assets/logo-icons/instagram-logo.png" alt="Instagram">
+                </a>
+                <a href="https://facebook.com/weirdroach" target="_blank" class="social-icon">
+                    <img src="assets/logo-icons/facebook-logo.png" alt="Facebook">
+                </a>
+                <a href="https://weirdroach.bandcamp.com/album/weird-roach-2" target="_blank" class="social-icon">
+                    <img src="assets/logo-icons/bandcamp-logo.png" alt="Bandcamp">
+                </a>
+                <a href="https://soundcloud.com/weirdroach" target="_blank" class="social-icon">
+                    <img src="assets/logo-icons/soundcloud-logo.png" alt="Soundcloud">
+                </a>
+                <a href="https://open.spotify.com/artist/6Ihd20LSGhT7eYKu6Wfwkz" target="_blank" class="social-icon">
+                    <img src="assets/logo-icons/spotify-logo.png" alt="Spotify">
+                </a>
+                <a href="https://www.youtube.com/@weirdroach/featured" target="_blank" class="social-icon">
+                    <img src="assets/logo-icons/youtube-logo.png" alt="Youtube">
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add Modal for enlarged product images -->
+    <div class="product-modal" id="product-modal">
+        <div class="modal-content">
+            <span class="modal-close">&times;</span>
+            <img id="modal-image" src="" alt="">
+        </div>
+    </div>
+
+    <script>
+        // Loading state management
+        function showLoadingState() {
+            const productsGrid = document.getElementById('products-grid');
+            productsGrid.innerHTML = `
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    <p>Loading products...</p>
                 </div>
             `;
-
-            grid.appendChild(productElement);
-
-            // Handle size selection updates price dynamically
-            const sizeSelect = productElement.querySelector(`#size-${product.id}`);
-            sizeSelect.addEventListener('change', () => {
-                const selectedOption = sizeSelect.options[sizeSelect.selectedIndex];
-                if (selectedOption.value) {
-                    productElement.querySelector('.product-price').textContent = `$${selectedOption.getAttribute('data-price')}`;
-                }
-            });
-        });
-    }
-
-    // 🛒 Cart System (with variant_id)
-    let cart = [];
-    
-    function addToCart(productName, productId) {
-        const sizeSelect = document.querySelector(`#size-${productId}`);
-        const selectedOption = sizeSelect.options[sizeSelect.selectedIndex];
-
-        if (!selectedOption.value) {
-            alert("Please select a size before adding to cart.");
-            return;
         }
 
-        const variantId = selectedOption.value;
-        const price = selectedOption.getAttribute('data-price');
-        const image = document.querySelector(`#size-${productId}`).closest('.product-item').querySelector('.product-image').src;
+        function hideLoadingState() {
+            const loadingElement = document.querySelector('.loading');
+            if (loadingElement) {
+                loadingElement.remove();
+            }
+        }
 
-        cart.push({ name: productName, variant_id: variantId, price, quantity: 1, image });
-        updateCartUI();
-    }
+        // Initialize Stripe with better error handling and ethereum conflict prevention
+        let stripe;
+        const initStripe = async () => {
+            try {
+                if (typeof Stripe === 'undefined') {
+                    console.log('Waiting for Stripe to load...');
+                    await new Promise(resolve => setTimeout(resolve, 1000)); // Increased timeout
+                    return initStripe();
+                }
+                
+                // Initialize Stripe with the live key
+                stripe = Stripe('pk_live_51QoYz1IWSRJ6M9B2Ot3c8mkKVjOCSyTRUZekWVySYkO8b68KbZihg4JpdadsfSlMmNFSzUnTD8vzjCQGKgVcNY00vyA7p9VW', {
+                    locale: 'auto',
+                    apiVersion: '2023-10-16',
+                    betas: ['server_side_confirmation_beta_1']
+                });
+                console.log('Stripe initialized successfully');
+            } catch (error) {
+                console.error('Error initializing Stripe:', error);
+                // Retry initialization after a delay if it fails
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                return initStripe();
+            }
+        };
 
-    function updateCartUI() {
+        // Initialize Stripe when the script loads
+        document.addEventListener('DOMContentLoaded', () => {
+            const stripeScript = document.querySelector('script[src*="stripe.com"]');
+            if (stripeScript) {
+                stripeScript.addEventListener('load', initStripe);
+            } else {
+                console.log('Loading Stripe script dynamically');
+                const script = document.createElement('script');
+                script.src = 'https://js.stripe.com/v3/';
+                script.async = true;
+                script.addEventListener('load', initStripe);
+                document.head.appendChild(script);
+            }
+        });
+
+        let cart = [];
+        const cartToggle = document.querySelector('.cart-toggle');
+        const cartSidebar = document.querySelector('.cart-sidebar');
+        const closeCart = document.querySelector('.close-cart');
         const cartItemsContainer = document.querySelector('.cart-items');
         const cartCount = document.querySelector('.cart-count');
         const cartTotal = document.querySelector('.cart-total span:last-child');
         const checkoutButton = document.querySelector('.checkout-button');
 
-        cartCount.textContent = cart.length;
-        cartItemsContainer.innerHTML = '';
-        let total = 0;
-
-        cart.forEach((item, index) => {
-            total += parseFloat(item.price) * item.quantity;
-            cartItemsContainer.innerHTML += `
-                <div class="cart-item">
-                    <img src="${item.image}" alt="${item.name}" class="cart-item-image">
-                    <div class="cart-item-details">
-                        <h3>${item.name}</h3>
-                        <p>$${item.price}</p>
-                        <div class="quantity-controls">
-                            <button onclick="updateQuantity(${index}, -1)">-</button>
-                            <span>${item.quantity}</span>
-                            <button onclick="updateQuantity(${index}, 1)">+</button>
-                        </div>
-                    </div>
-                    <button class="remove-item" onclick="removeFromCart(${index})">×</button>
-                </div>
-            `;
+        // Toggle cart sidebar
+        cartToggle.addEventListener('click', () => {
+            cartSidebar.classList.add('active');
         });
 
-        cartTotal.textContent = `$${total.toFixed(2)}`;
-        checkoutButton.disabled = cart.length === 0;
-    }
+        closeCart.addEventListener('click', () => {
+            cartSidebar.classList.remove('active');
+        });
 
-    async function checkout() {
-        try {
-            const response = await fetch('/api/create-checkout-session', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ items: cart })
+        // Update cart UI
+        function updateCartUI() {
+            cartCount.textContent = cart.length;
+            cartItemsContainer.innerHTML = '';
+            let total = 0;
+
+            cart.forEach((item, index) => {
+                total += parseFloat(item.price) * item.quantity;
+                cartItemsContainer.innerHTML += `
+                    <div class="cart-item">
+                        <img src="${item.image}" alt="${item.name}" class="cart-item-image">
+                        <div class="cart-item-details">
+                            <h3>${item.name}</h3>
+                            <p>$${item.price}</p>
+                            <div class="quantity-controls">
+                                <button onclick="updateQuantity(${index}, -1)">-</button>
+                                <span>${item.quantity}</span>
+                                <button onclick="updateQuantity(${index}, 1)">+</button>
+                            </div>
+                        </div>
+                        <button class="remove-item" onclick="removeFromCart(${index})">×</button>
+                    </div>
+                `;
             });
 
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || 'Checkout failed');
+            cartTotal.textContent = `$${total.toFixed(2)}`;
+            checkoutButton.disabled = cart.length === 0;
 
-            window.location.href = data.url; // Redirect to Stripe Checkout
-        } catch (error) {
-            console.error('Checkout Error:', error);
-            alert("Failed to start checkout. Try again.");
+            if (cart.length === 0) {
+                cartItemsContainer.innerHTML = `
+                    <div class="cart-empty">
+                        <div class="cart-empty-icon">🛒</div>
+                        <p class="cart-empty-text">Your cart is empty</p>
+                    </div>
+                `;
+            }
+
+            // Save cart to localStorage
+            localStorage.setItem('cart', JSON.stringify(cart));
         }
-    }
 
-    document.querySelector('.checkout-button').addEventListener('click', checkout);
+        // Load cart from localStorage
+        function loadCart() {
+            const savedCart = localStorage.getItem('cart');
+            if (savedCart) {
+                cart = JSON.parse(savedCart);
+                updateCartUI();
+            }
+        }
 
-    window.addEventListener('load', loadProducts);
-</script>
+        // Update quantity
+        function updateQuantity(index, change) {
+            cart[index].quantity = Math.max(1, cart[index].quantity + change);
+            updateCartUI();
+        }
+
+        // Remove from cart
+        function removeFromCart(index) {
+            cart.splice(index, 1);
+            updateCartUI();
+        }
+
+        // Add to cart
+        function addToCart(product) {
+            cart.push({
+                name: `${product.name} - ${product.color} (${product.size})`,
+                price: product.price,
+                quantity: 1,
+                image: product.image,
+                variant_id: product.variant_id
+            });
+            updateCartUI();
+            cartSidebar.classList.add('active');
+        }
+
+        // Update the checkout handler with better error handling
+        checkoutButton.addEventListener('click', async () => {
+            try {
+                checkoutButton.disabled = true;
+                checkoutButton.textContent = 'Processing...';
+
+                // Validate cart items before sending
+                const validatedItems = cart.map(item => ({
+                    name: item.name,
+                    variant_id: item.variant_id,  // Added variant ID
+                    price: parseFloat(item.price).toFixed(2),
+                    quantity: parseInt(item.quantity),
+                    image: item.image
+                })).filter(item => 
+                    item.name && 
+                    item.variant_id &&  // Ensure variant ID is present
+                    !isNaN(item.price) && 
+                    !isNaN(item.quantity) && 
+                    item.quantity > 0
+                );
+
+                if (validatedItems.length === 0) {
+                    throw new Error('No valid items in cart');
+                }
+
+                console.log('Sending checkout request with items:', validatedItems);
+
+                const response = await fetch('/api/create-checkout-session', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        items: validatedItems
+                    }),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.error('Checkout session creation failed:', errorData);
+                    throw new Error(errorData.error || errorData.details || 'Failed to create checkout session');
+                }
+
+                const { url } = await response.json();
+                
+                // Redirect to Stripe Checkout
+                window.location.href = url;
+            } catch (error) {
+                console.error('Checkout error:', error);
+                alert('There was an error processing your checkout. Please try again.');
+                checkoutButton.disabled = false;
+                checkoutButton.textContent = 'Proceed to Checkout';
+            }
+        });
+
+        // Load cart on page load
+        window.addEventListener('load', () => {
+            loadCart();
+            loadProducts();
+        });
+
+        // Fetch products from our server endpoint that will communicate with Printful
+        async function loadProducts() {
+            const productsGrid = document.getElementById('products-grid');
+            try {
+                showLoadingState();
+                // Use relative path for API requests
+                const apiUrl = '/api/products';
+                console.log('Fetching products from:', apiUrl);
+                
+                const response = await fetch(apiUrl);
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Error response:', errorText);
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const products = await response.json();
+                console.log('Products received:', products);
+                
+                if (!products || products.length === 0) {
+                    hideLoadingState();
+                    productsGrid.innerHTML = `
+                        <div class="error-message">
+                            <p>No products available at the moment.</p>
+                            <button class="retry-button" onclick="loadProducts()">Try Again</button>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                hideLoadingState();
+                displayProducts(products);
+            } catch (error) {
+                console.error('Error loading products:', error);
+                hideLoadingState();
+                productsGrid.innerHTML = `
+                    <div class="error-message">
+                        <p>Error loading products. ${error.message}</p>
+                        <button class="retry-button" onclick="loadProducts()">Try Again</button>
+                    </div>
+                `;
+            }
+        }
+
+        // Display products in the grid
+        function displayProducts(products) {
+            const grid = document.getElementById('products-grid');
+            grid.innerHTML = '';
+
+            // Define the desired order of products by name
+            const productOrder = [
+                "French Elephant",
+                "Acid on the Couch",
+                "Weird Roach White",
+                "French Elephant Pullover",
+                "Weird Roach Blk",
+                "Phuture Times"
+            ];
+
+            // Sort products according to the defined order, considering color variants
+            const sortedProducts = [...products].sort((a, b) => {
+                // Helper function to find index considering partial matches
+                const findProductIndex = (name) => {
+                    return productOrder.findIndex(orderName => 
+                        name.toLowerCase().includes(orderName.toLowerCase().trim())
+                    );
+                };
+
+                const indexA = findProductIndex(a.name);
+                const indexB = findProductIndex(b.name);
+                
+                // If same product name, sort by color
+                if (indexA === indexB) {
+                    const aVariants = a.variants || [];
+                    const bVariants = b.variants || [];
+                    const aColor = aVariants[0]?.color?.toLowerCase() || '';
+                    const bColor = bVariants[0]?.color?.toLowerCase() || '';
+                    
+                    // Put white variant first for specific products
+                    if (a.name.includes("Acid on the Couch") || a.name.includes("Weird Roach")) {
+                        if (aColor === 'white' && bColor !== 'white') return -1;
+                        if (bColor === 'white' && aColor !== 'white') return 1;
+                    }
+                    return 0;
+                }
+                
+                // If one of the products is not in the order array, put it at the end
+                if (indexA === -1) return 1;
+                if (indexB === -1) return -1;
+                
+                return indexA - indexB;
+            });
+
+            sortedProducts.forEach(product => {
+                const productElement = document.createElement('article');
+                productElement.className = 'product-item';
+                
+                // Get unique colors and sizes from variants
+                const variants = product.variants || [];
+                const colors = [...new Set(variants.map(v => v.color).filter(Boolean))];
+                const sizes = [...new Set(variants.map(v => v.size).filter(Boolean))];
+                
+                // Get the first variant's info for initial display
+                const firstVariant = variants[0] || {};
+                const price = firstVariant.price || '0.00';
+                let imageUrl = firstVariant.preview_url || product.thumbnail_url;
+
+                // Set white variant as default for specific products
+                if (product.name === "Acid on the Couch" || 
+                    (product.name === "Weird Roach White" && variants.some(v => v.color?.toLowerCase() === 'white'))) {
+                    const whiteVariant = variants.find(v => v.color?.toLowerCase() === 'white');
+                    if (whiteVariant) {
+                        imageUrl = whiteVariant.preview_url || imageUrl;
+                    }
+                }
+                
+                productElement.innerHTML = `
+                    <div class="product-image-container">
+                        <img src="${imageUrl}" 
+                             alt="${product.name}" 
+                             class="product-image" 
+                             onerror="this.src='assets/placeholder.png'"
+                             onclick="openModal(this.src, this.alt)">
+                    </div>
+                    <div class="product-details">
+                        <h2 class="product-name">${product.name}</h2>
+                        <p class="product-price">$${price}</p>
+                        
+                        ${variants.length > 0 ? `
+                            <div class="variant-options">
+                                <div class="color-options">
+                                    ${colors.map(color => `
+                                        <button class="color-option" 
+                                                data-color="${color}"
+                                                style="background-color: ${getColorValue(color)}"
+                                                aria-label="${color}">
+                                        </button>
+                                    `).join('')}
+                                </div>
+                                
+                                <div class="size-select">
+                                    <select id="size-${product.id}" required>
+                                        <option value="">Select Size</option>
+                                        ${sizes.map(size => `
+                                            <option value="${size}">${size}</option>
+                                        `).join('')}
+                                    </select>
+                                </div>
+                            </div>
+                        ` : '<p class="no-variants">No variants available</p>'}
+                        
+                        <div class="product-actions">
+                            <button class="add-to-cart-button" ${variants.length === 0 ? 'disabled' : ''}>
+                                Add to Cart
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                // Add variant selection handlers
+                if (variants.length > 0) {
+                    const colorOptions = productElement.querySelectorAll('.color-option');
+                    const sizeSelect = productElement.querySelector(`#size-${product.id}`);
+                    let selectedColor = null;
+                    
+                    // Color selection handler
+                    colorOptions.forEach(colorBtn => {
+                        const color = colorBtn.dataset.color;
+                        
+                        // Set white as default for specific products
+                        if ((product.name.includes("Acid on the Couch") || 
+                             product.name.includes("Weird Roach White")) && 
+                            color.toLowerCase() === 'white') {
+                            colorBtn.classList.add('active');
+                            selectedColor = color;
+                            updateProductDisplay();
+                        } else if (!selectedColor && 
+                                 !product.name.includes("Acid on the Couch") && 
+                                 !product.name.includes("Weird Roach White")) {
+                            colorBtn.classList.add('active');
+                            selectedColor = color;
+                            updateProductDisplay();
+                        }
+                        
+                        colorBtn.addEventListener('click', () => {
+                            // Remove active class from all color options
+                            colorOptions.forEach(btn => btn.classList.remove('active'));
+                            // Add active class to selected color
+                            colorBtn.classList.add('active');
+                            selectedColor = colorBtn.dataset.color;
+                            updateProductDisplay();
+                        });
+                    });
+                    
+                    function updateProductDisplay() {
+                        const selectedSize = sizeSelect.value;
+                        
+                        if (selectedColor) {
+                            // Find variant with matching color, regardless of size
+                            const colorVariant = variants.find(v => v.color === selectedColor);
+                            if (colorVariant && colorVariant.preview_url) {
+                                const img = productElement.querySelector('.product-image');
+                                img.src = colorVariant.preview_url;
+                                img.alt = `${product.name} - ${colorVariant.name}`;
+                            }
+                            
+                            // If both color and size are selected, update the price
+                            if (selectedSize) {
+                                const selectedVariant = variants.find(v => 
+                                    v.color === selectedColor && v.size === selectedSize
+                                );
+                                
+                                if (selectedVariant) {
+                                    productElement.querySelector('.product-price').textContent = 
+                                        `$${selectedVariant.price}`;
+                                }
+                            }
+                        }
+                    }
+
+                    sizeSelect.addEventListener('change', updateProductDisplay);
+
+                    // Add to cart button handler
+                    const addToCartButton = productElement.querySelector('.add-to-cart-button');
+                    addToCartButton.addEventListener('click', () => {
+                        if (!selectedColor) {
+                            alert('Please select a color');
+                            return;
+                        }
+                        const selectedSize = sizeSelect.value;
+                        if (!selectedSize) {
+                            alert('Please select a size');
+                            return;
+                        }
+                        
+                        const selectedVariant = variants.find(v => 
+                            v.color === selectedColor && v.size === selectedSize
+                        );
+                        
+                        if (!selectedVariant) {
+                            alert('Selected combination is not available');
+                            return;
+                        }
+                        
+                        addToCart({
+                            name: product.name,
+                            variant_id: selectedVariant.id,
+                            color: selectedVariant.color,
+                            size: selectedVariant.size,
+                            price: selectedVariant.price,
+                            quantity: 1,
+                            image: selectedVariant.preview_url || firstVariant.preview_url
+                        });
+                    });
+                }
+                
+                grid.appendChild(productElement);
+            });
+        }
+
+        // Add a color mapping function before displayProducts
+        function getColorValue(colorName) {
+            const colorMap = {
+                'heather grey': '#D3D3D3',
+                'heather dark grey': '#A9A9A9',
+                'heather navy': '#34495e',
+                'navy': '#000080',
+                'royal': '#4169E1',
+                'sport grey': '#C0C0C0',
+                'dark heather': '#666666',
+                'white': '#FFFFFF',
+                'black': '#000000',
+                'red': '#FF0000',
+                'maroon': '#800000',
+                'kelly green': '#4CBB17',
+                'forest green': '#228B22',
+                'forest': '#228B22',
+                'purple': '#800080',
+                'gold': '#FFD700',
+                'heather': '#D3D3D3',
+                'dark grey': '#A9A9A9',
+                'grey': '#808080',
+                'green': '#228B22',
+                'light grey': '#D3D3D3',
+                'light heather grey': '#D3D3D3',
+                'light gray': '#D3D3D3',
+                'heather light grey': '#D3D3D3',
+                'bottle green': '#006A4E',
+                'burgundy': '#800020',
+                'cardinal': '#C41E3A',
+                'carolina blue': '#4B9CD3',
+                'charcoal': '#36454F',
+                'dark green': '#006400',
+                'dark red': '#8B0000',
+                'military green': '#4B5320',
+                'olive': '#808000',
+                'orange': '#FFA500',
+                'pink': '#FFC0CB',
+                'royal blue': '#4169E1',
+                'sand': '#C2B280',
+                'silver': '#C0C0C0',
+                'slate': '#708090',
+                'teal': '#008080',
+                'yellow': '#FFD700'
+            };
+            
+            // Convert color name to lowercase and trim for case-insensitive matching
+            const normalizedColorName = colorName.toLowerCase().trim();
+            
+            // Check for exact match first
+            if (colorMap[normalizedColorName]) {
+                return colorMap[normalizedColorName];
+            }
+            
+            // Check for partial matches
+            for (const [key, value] of Object.entries(colorMap)) {
+                if (normalizedColorName.includes(key)) {
+                    return value;
+                }
+            }
+            
+            // Log unmapped colors to help with debugging
+            console.log('No color mapping found for:', colorName);
+            return normalizedColorName;
+        }
+
+        // Add modal functionality
+        const modal = document.getElementById('product-modal');
+        const modalImg = document.getElementById('modal-image');
+        const closeBtn = document.querySelector('.modal-close');
+
+        function openModal(src, alt) {
+            modal.style.display = "flex";
+            modalImg.src = src;
+            modalImg.alt = alt;
+            document.body.style.overflow = 'hidden'; // Prevent scrolling when modal is open
+        }
+
+        // Close modal when clicking the close button
+        closeBtn.onclick = function() {
+            modal.style.display = "none";
+            document.body.style.overflow = 'auto'; // Restore scrolling
+        }
+
+        // Close modal when clicking outside the image
+        modal.onclick = function(event) {
+            if (event.target === modal) {
+                modal.style.display = "none";
+                document.body.style.overflow = 'auto'; // Restore scrolling
+            }
+        }
+
+        // Close modal with escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape' && modal.style.display === "flex") {
+                modal.style.display = "none";
+                document.body.style.overflow = 'auto'; // Restore scrolling
+            }
+        });
+    </script>
+</body>
+</html> 
