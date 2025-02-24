@@ -424,17 +424,10 @@
                 
                 // Get the first variant's info for initial display
                 const firstVariant = variants[0] || {};
-                const price = firstVariant.price || '0.00';
-                let imageUrl = firstVariant.preview_url || product.thumbnail_url;
-
-                // Set white variant as default for specific products
-                if (product.name === "Acid on the Couch" || 
-                    (product.name === "Weird Roach White" && variants.some(v => v.color?.toLowerCase() === 'white'))) {
-                    const whiteVariant = variants.find(v => v.color?.toLowerCase() === 'white');
-                    if (whiteVariant) {
-                        imageUrl = whiteVariant.preview_url || imageUrl;
-                    }
-                }
+                const price = firstVariant.retail_price || '0.00';
+                
+                // Use the top-level thumbnail_url as default
+                let imageUrl = product.thumbnail_url;
                 
                 productElement.innerHTML = `
                     <div class="product-image-container">
@@ -483,26 +476,12 @@
                 if (variants.length > 0) {
                     const colorOptions = productElement.querySelectorAll('.color-option');
                     const sizeSelect = productElement.querySelector(`#size-${product.id}`);
+                    const addToCartButton = productElement.querySelector('.add-to-cart-button');
                     let selectedColor = null;
                     
                     // Color selection handler
                     colorOptions.forEach(colorBtn => {
                         const color = colorBtn.dataset.color;
-                        
-                        // Set white as default for specific products
-                        if ((product.name.includes("Acid on the Couch") || 
-                             product.name.includes("Weird Roach White")) && 
-                            color.toLowerCase() === 'white') {
-                            colorBtn.classList.add('active');
-                            selectedColor = color;
-                            updateProductDisplay();
-                        } else if (!selectedColor && 
-                                 !product.name.includes("Acid on the Couch") && 
-                                 !product.name.includes("Weird Roach White")) {
-                            colorBtn.classList.add('active');
-                            selectedColor = color;
-                            updateProductDisplay();
-                        }
                         
                         colorBtn.addEventListener('click', () => {
                             // Remove active class from all color options
@@ -518,15 +497,14 @@
                         const selectedSize = sizeSelect.value;
                         
                         if (selectedColor) {
-                            // Find variant with matching color, regardless of size
                             const colorVariant = variants.find(v => v.color === selectedColor);
-                            if (colorVariant && colorVariant.preview_url) {
+                            if (colorVariant && colorVariant.file?.preview_url) {
                                 const img = productElement.querySelector('.product-image');
-                                img.src = colorVariant.preview_url;
-                                img.alt = `${product.name} - ${colorVariant.name}`;
+                                img.src = colorVariant.file.preview_url;
+                                img.alt = `${product.name} - ${selectedColor}`;
                             }
                             
-                            // If both color and size are selected, update the price
+                            // Price update logic
                             if (selectedSize) {
                                 const selectedVariant = variants.find(v => 
                                     v.color === selectedColor && v.size === selectedSize
@@ -534,17 +512,16 @@
                                 
                                 if (selectedVariant) {
                                     productElement.querySelector('.product-price').textContent = 
-                                        `$${selectedVariant.price}`;
+                                        `$${selectedVariant.retail_price}`;
                                 }
                             }
                         }
                     }
 
-                    sizeSelect.addEventListener('change', updateProductDisplay);
-
                     // Add to cart button handler
-                    const addToCartButton = productElement.querySelector('.add-to-cart-button');
                     addToCartButton.addEventListener('click', () => {
+                        console.log('Add to cart clicked'); // Debug log
+                        
                         if (!selectedColor) {
                             alert('Please select a color');
                             return;
@@ -564,16 +541,20 @@
                             return;
                         }
                         
+                        console.log('Selected variant:', selectedVariant); // Debug log
+                        
                         addToCart({
                             name: product.name,
-                            variant_id: selectedVariant.id,
+                            sync_variant_id: selectedVariant.sync_variant_id,
                             color: selectedVariant.color,
                             size: selectedVariant.size,
-                            price: selectedVariant.price,
+                            price: selectedVariant.retail_price,
                             quantity: 1,
-                            image: selectedVariant.preview_url || firstVariant.preview_url
+                            image: selectedVariant.file?.preview_url || product.thumbnail_url
                         });
                     });
+
+                    sizeSelect.addEventListener('change', updateProductDisplay);
                 }
                 
                 grid.appendChild(productElement);
