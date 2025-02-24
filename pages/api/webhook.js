@@ -82,19 +82,12 @@ export default async function handler(req, res) {
             console.log("🔍 Searching for variant of:", productName);
 
             const { variant_id, image_url, price } = await getVariantIdFromWeirdRoach(productName);
-
             items.push({
                 variant_id,
                 quantity: item.quantity,
-                retail_price: price || (item.amount_subtotal / 100).toFixed(2), // Prefer API price
-                files: [
-                    {
-                        url: image_url, // ✅ Correct image for Printful
-                        placement: "default",
-                    },
-                ],
+                retail_price: price || (item.amount_subtotal / 100).toFixed(2) // Prefer API price
             });
-        }
+                
 
         if (!items.length) {
             console.error("❌ No valid items found.");
