@@ -1,14 +1,43 @@
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
 
-// Load environment variables
-dotenv.config();
+// ES Module path handling
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Try multiple env file locations for local development
+const envPaths = [
+    path.resolve(__dirname, '../../.env.local'),
+    path.resolve(__dirname, '../../.env'),
+    path.resolve(process.cwd(), '.env.local'),
+    path.resolve(process.cwd(), '.env')
+];
+
+// Load the first env file that exists
+for (const envPath of envPaths) {
+    if (fs.existsSync(envPath)) {
+        console.log('\n=== Loading Environment File ===');
+        console.log('Found env file at:', envPath);
+        dotenv.config({ path: envPath });
+        break;
+    }
+}
+
+// Fallback to hardcoded values for local development
+if (!process.env.PRINTFUL_ACCESS_TOKEN && !process.env.VERCEL) {
+    console.log('\n=== Using Local Development Values ===');
+    process.env.PRINTFUL_ACCESS_TOKEN = 'your_local_token_here';
+    process.env.PRINTFUL_STORE_ID = 'your_local_store_id_here';
+}
 
 // Debug environment variables
-console.log('=== API Route Environment Variables ===');
-console.log('Store ID:', process.env.PRINTFUL_STORE_ID);
-console.log('Access token exists:', !!process.env.PRINTFUL_ACCESS_TOKEN);
-console.log('====================================');
+console.log('\n=== Products API Environment Variables ===');
+console.log('PRINTFUL_ACCESS_TOKEN exists:', !!process.env.PRINTFUL_ACCESS_TOKEN);
+console.log('PRINTFUL_STORE_ID exists:', !!process.env.PRINTFUL_STORE_ID);
+console.log('=====================================\n');
 
 // Printful API configuration
 const PRINTFUL_API_URL = 'https://api.printful.com';
@@ -32,12 +61,91 @@ const makePrintfulRequest = async (endpoint, options = {}) => {
         console.error('Printful API Error:', {
             endpoint,
             status: response.status,
-            statusText: response.statusText,
             error: errorText
         });
+        throw new Error(`Printful API request failed: ${response.status} ${errorText}`);
     }
 
-    return response;
+    return response.json();
+};
+
+// Helper function to validate and extract size
+const extractSize = (name) => {
+    const validSizes = ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
+    const nameParts = name.split(' / ');
+    
+    // Check all parts of the name for a valid size
+    for (const part of nameParts) {
+        if (validSizes.includes(part)) {
+            return part;
+        }
+    }
+    
+    return ''; // Return empty string if no valid size found
+};
+
+// Helper function to extract and map color
+const extractColor = (name) => {
+    const nameParts = name.split(' / ');
+    const colorPart = nameParts[1] || '';
+    
+    // Map of known color variations to standardized names
+    const colorMap = {
+        'Black': 'Black',
+        'White': 'White',
+        'Desert Dust': 'Desert Dust',
+        'Bottle green': 'Bottle green',
+        'Burgundy': 'Burgundy',
+        'Charcoal Melange': 'Charcoal Melange',
+        'Dark Heather Grey': 'Dark Heather Grey',
+        // Add more color mappings as needed
+    };
+
+    // First check if what we think is color is actually a size
+    const validSizes = ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
+    if (validSizes.includes(colorPart)) {
+        return 'Pink'; // Default to pink if we found a size instead of a color
+    }
+
+    // Debug logging
+    console.log('Processing color:', {
+        name,
+        nameParts,
+        colorPart,
+        mappedColor: colorMap[colorPart] || 'Pink'
+    });
+
+    return colorMap[colorPart] || 'Pink'; // Default to pink if color not in map
+};
+
+// Helper function to extract variant details
+const extractVariantDetails = (variant) => {
+    const size = extractSize(variant.name);
+    const color = extractColor(variant.name);
+    
+    // Get the preview file specifically
+    const previewFile = variant.files?.find(f => f.type === "preview");
+    const designFile = variant.files?.[0];  // Keep the first file as fallback
+
+    return {
+        variant_id: variant.variant_id,
+        sync_variant_id: variant.id,
+        external_id: variant.external_id,
+        name: variant.name,
+        color: color,
+        size: size,
+        retail_price: variant.retail_price,
+        sku: variant.sku,
+        product_image: variant.product.image,
+        product_name: variant.product.name,
+        file: {
+            filename: designFile.filename,
+            preview_url: previewFile?.preview_url || designFile?.preview_url,
+            thumbnail_url: previewFile?.thumbnail_url || designFile?.thumbnail_url,
+            width: designFile?.width,
+            height: designFile?.height
+        }
+    };
 };
 
 // Enable CORS
@@ -67,97 +175,58 @@ export default async function handler(req, res) {
             throw new Error('Printful access token or store ID is missing');
         }
 
-        const productId = req.query.id;
-        if (productId) {
+        const { id, raw } = req.query;
+        const isRawMode = raw === 'true';
+
+        if (id) {
             // Fetch single product details
-            const response = await makePrintfulRequest(`/sync/products/${productId}`);
-            if (!response.ok) {
-                const errorText = await response.text();
-                return res.status(response.status).json({
-                    error: 'Failed to fetch product details from Printful',
-                    status: response.status,
-                    details: errorText
-                });
+            const response = await makePrintfulRequest(`/store/products/${id}?store_id=${PRINTFUL_STORE_ID}`);
+            
+            if (isRawMode) {
+                return res.json(response);
             }
 
-            const data = await response.json();
+            // Return simplified data
             const formattedProduct = {
-                id: data.result.sync_product.id,
-                name: data.result.sync_product.name,
-                description: data.result.sync_product.description || '',
-                thumbnail_url: data.result.sync_product.thumbnail_url,
-                variants: data.result.sync_variants.map(variant => ({
-                    id: variant.id, // Sync ID (not used in orders)
-                    variant_id: variant.variant_id, // ✅ Correct Printful variant ID
-                    name: variant.name,
-                    retail_price: variant.retail_price,
-                    sku: variant.sku,
-                    image: variant.product.image
-                }))
+                id: response.result.sync_product.id,
+                external_id: response.result.sync_product.external_id,
+                name: response.result.sync_product.name,
+                thumbnail_url: response.result.sync_product.thumbnail_url,
+                variants_count: {
+                    total: response.result.sync_product.variants,
+                    synced: response.result.sync_product.synced
+                },
+                variants: response.result.sync_variants.map(extractVariantDetails)
             };
 
-            res.setHeader('Cache-Control', 'public, max-age=300');
             return res.json(formattedProduct);
         }
 
         // Fetch all products
-        const response = await makePrintfulRequest('/sync/products');
-        if (!response.ok) {
-            throw new Error(`Printful API error: ${response.status} ${response.statusText}`);
+        const response = await makePrintfulRequest(`/store/products?store_id=${PRINTFUL_STORE_ID}`);
+        
+        if (isRawMode) {
+            return res.json(response);
         }
 
-        const data = await response.json();
-        const formattedProducts = await Promise.all(data.result.map(async (product) => {
+        // Get detailed information for each product
+        const formattedProducts = await Promise.all(response.result.map(async (product) => {
             try {
-                const productDetails = await makePrintfulRequest(`/sync/products/${product.id}`);
-                const detailsData = await productDetails.json();
-                
-                console.log(`Product ${product.id} details:`, JSON.stringify(detailsData, null, 2));
-
-                if (!productDetails.ok || !detailsData.result) {
-                    console.error(`Invalid product details for ${product.id}:`, detailsData);
-                    return {
-                        id: product.id,
-                        name: product.name,
-                        description: product.description || '',
-                        thumbnail_url: product.thumbnail_url,
-                        variants: []
-                    };
-                }
-
-                // Extract correct variants with `variant_id`
-                const variants = detailsData.result.sync_variants || [];
-                console.log(`Found ${variants.length} variants for product ${product.id}`);
-
+                const details = await makePrintfulRequest(`/store/products/${product.id}?store_id=${PRINTFUL_STORE_ID}`);
                 return {
                     id: product.id,
                     name: product.name,
-                    description: product.description || '',
                     thumbnail_url: product.thumbnail_url,
-                    variants: variants.map(variant => ({
-                        id: variant.id, // Sync ID (useful for debugging but not for orders)
-                        variant_id: variant.variant_id, // ✅ Actual Printful variant ID for ordering
-                        name: variant.name,
-                        price: variant.retail_price,
-                        sku: variant.sku,
-                        image: variant.product.image || product.thumbnail_url
-                    }))
+                    variants: details.result.sync_variants.map(extractVariantDetails)
                 };
             } catch (error) {
-                console.error(`Error fetching variants for product ${product.id}:`, error);
-                return {
-                    id: product.id,
-                    name: product.name,
-                    description: product.description || '',
-                    thumbnail_url: product.thumbnail_url,
-                    variants: []
-                };
+                console.error(`Error fetching details for product ${product.id}:`, error);
+                return null;
             }
         }));
 
-        // Filter out products with no valid variants
-        const validProducts = formattedProducts.filter(product => product.variants.length > 0);
-        console.log(`Found ${validProducts.length} valid products out of ${formattedProducts.length} total`);
+        // Filter out any failed product fetches
+        const validProducts = formattedProducts.filter(Boolean);
 
         res.setHeader('Cache-Control', 'public, max-age=300');
         return res.json(validProducts);
