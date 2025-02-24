@@ -27,7 +27,6 @@ const makePrintfulRequest = async (endpoint, options = {}) => {
         }
     });
 
-    // Log API response for debugging
     if (!response.ok) {
         const errorText = await response.text();
         console.error('Printful API Error:', {
@@ -54,29 +53,24 @@ const setCorsHeaders = (res) => {
 
 // Vercel API handler
 export default async function handler(req, res) {
-    // Handle CORS
     setCorsHeaders(res);
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
 
-    // Only allow GET requests
     if (req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
     try {
-        // Validate environment variables
         if (!PRINTFUL_ACCESS_TOKEN || !PRINTFUL_STORE_ID) {
             throw new Error('Printful access token or store ID is missing');
         }
 
-        // Handle product ID route
         const productId = req.query.id;
         if (productId) {
-            // Get specific product details
+            // Fetch single product details
             const response = await makePrintfulRequest(`/sync/products/${productId}`);
-            
             if (!response.ok) {
                 const errorText = await response.text();
                 return res.status(response.status).json({
@@ -88,19 +82,25 @@ export default async function handler(req, res) {
 
             const data = await response.json();
             const formattedProduct = {
-                id: data.result.id,
-                name: data.result.name,
-                description: data.result.description || '',
-                thumbnail_url: data.result.thumbnail_url,
-                variants: data.result.sync_variants || []
+                id: data.result.sync_product.id,
+                name: data.result.sync_product.name,
+                description: data.result.sync_product.description || '',
+                thumbnail_url: data.result.sync_product.thumbnail_url,
+                variants: data.result.sync_variants.map(variant => ({
+                    id: variant.id, // Sync ID (not used in orders)
+                    variant_id: variant.variant_id, // ✅ Correct Printful variant ID
+                    name: variant.name,
+                    retail_price: variant.retail_price,
+                    sku: variant.sku,
+                    image: variant.product.image
+                }))
             };
 
-            // Cache the response for 5 minutes
             res.setHeader('Cache-Control', 'public, max-age=300');
             return res.json(formattedProduct);
         }
 
-        // Get all products
+        // Fetch all products
         const response = await makePrintfulRequest('/sync/products');
         if (!response.ok) {
             throw new Error(`Printful API error: ${response.status} ${response.statusText}`);
@@ -112,9 +112,8 @@ export default async function handler(req, res) {
                 const productDetails = await makePrintfulRequest(`/sync/products/${product.id}`);
                 const detailsData = await productDetails.json();
                 
-                // Add additional validation and logging
                 console.log(`Product ${product.id} details:`, JSON.stringify(detailsData, null, 2));
-                
+
                 if (!productDetails.ok || !detailsData.result) {
                     console.error(`Invalid product details for ${product.id}:`, detailsData);
                     return {
@@ -126,7 +125,7 @@ export default async function handler(req, res) {
                     };
                 }
 
-                // Extract variants with proper validation
+                // Extract correct variants with `variant_id`
                 const variants = detailsData.result.sync_variants || [];
                 console.log(`Found ${variants.length} variants for product ${product.id}`);
 
@@ -136,12 +135,12 @@ export default async function handler(req, res) {
                     description: product.description || '',
                     thumbnail_url: product.thumbnail_url,
                     variants: variants.map(variant => ({
-                        id: variant.id,
+                        id: variant.id, // Sync ID (useful for debugging but not for orders)
+                        variant_id: variant.variant_id, // ✅ Actual Printful variant ID for ordering
                         name: variant.name,
                         price: variant.retail_price,
-                        size: variant.size || '',
-                        color: variant.color || '',
-                        preview_url: variant.files?.find(f => f.type === 'preview')?.preview_url || product.thumbnail_url
+                        sku: variant.sku,
+                        image: variant.product.image || product.thumbnail_url
                     }))
                 };
             } catch (error) {
@@ -156,11 +155,10 @@ export default async function handler(req, res) {
             }
         }));
 
-        // Filter out products with no variants
+        // Filter out products with no valid variants
         const validProducts = formattedProducts.filter(product => product.variants.length > 0);
         console.log(`Found ${validProducts.length} valid products out of ${formattedProducts.length} total`);
 
-        // Cache the response for 5 minutes
         res.setHeader('Cache-Control', 'public, max-age=300');
         return res.json(validProducts);
     } catch (error) {
@@ -171,4 +169,4 @@ export default async function handler(req, res) {
             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
-} 
+}
