@@ -4,10 +4,11 @@ const PRINTFUL_API_URL = "https://api.printful.com";
 const PRINTFUL_ACCESS_TOKEN = process.env.PRINTFUL_ACCESS_TOKEN;
 const PRINTFUL_STORE_ID = process.env.PRINTFUL_STORE_ID;
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
-const FALLBACK_VARIANT_ID = 14904;
-const FALLBACK_IMAGE_URL = "https://files.cdn.printful.com/files/bc9/bc9c6f6ea866ad1030cf45cf68bed5a8_preview.png";
-const PRODUCTS_API_URL = "https://www.weirdroach.com/api/products";
+const FALLBACK_VARIANT_ID = 14904; // Safety fallback
+const FALLBACK_IMAGE_URL = "https://yourdomain.com/path-to-default-design.jpg"; // Default print file
+const PRODUCTS_API_URL = "https://www.weirdroach.com/api/products"; // Your API
 
+// ✅ Fetch product variants from Weird Roach API
 const getVariantIdFromWeirdRoach = async (productName) => {
     try {
         console.log("🔍 Fetching variants from Weird Roach API...");
@@ -15,105 +16,41 @@ const getVariantIdFromWeirdRoach = async (productName) => {
         
         if (!response.ok) {
             console.error(`❌ Weird Roach API request failed: ${response.status}`);
-            return {
-                variant_id: FALLBACK_VARIANT_ID,
-                files: [{
-                    type: "front",
-                    url: FALLBACK_IMAGE_URL,
-                    options: {
-                        positioning: "front",
-                        dimensions: {
-                            width: 1800,
-                            height: 1800
-                        }
-                    }
-                }]
-            };
+            return { variant_id: FALLBACK_VARIANT_ID, image_url: FALLBACK_IMAGE_URL };
         }
 
         const products = await response.json();
         if (!products || products.length === 0) {
             console.error("❌ Weird Roach API returned empty response.");
-            return {
-                variant_id: FALLBACK_VARIANT_ID,
-                files: [{
-                    type: "front",
-                    url: FALLBACK_IMAGE_URL,
-                    options: {
-                        positioning: "front",
-                        dimensions: {
-                            width: 1800,
-                            height: 1800
-                        }
-                    }
-                }]
-            };
+            return { variant_id: FALLBACK_VARIANT_ID, image_url: FALLBACK_IMAGE_URL };
         }
 
         for (const product of products) {
             for (const variant of product.variants) {
+                // Normalize product names to improve matching
                 const stripeName = productName.toLowerCase().replace(/[^a-z0-9]/gi, "");
                 const apiVariantName = variant.name.toLowerCase().replace(/[^a-z0-9]/gi, "");
 
                 if (stripeName.includes(apiVariantName) || apiVariantName.includes(stripeName)) {
-                    console.log(`✅ Found Variant ID: ${variant.variant_id} for "${productName}"`);
-                    const fileUrl = variant.file?.preview_url || variant.preview_url || FALLBACK_IMAGE_URL;
-                    
+                    console.log(`✅ Found Variant ID: ${variant.id} for "${productName}"`);
                     return {
-                        variant_id: variant.variant_id,
-                        price: variant.retail_price || null,
-                        files: [{
-                            type: "front",
-                            url: fileUrl,
-                            options: {
-                                positioning: "front",
-                                dimensions: {
-                                    width: 1800,
-                                    height: 1800
-                                }
-                            }
-                        }]
+                        variant_id: variant.id,
+                        image_url: variant.preview_url || FALLBACK_IMAGE_URL,
+                        price: variant.price || null,
                     };
                 }
             }
         }
 
         console.warn(`⚠️ No variant found for "${productName}". Using fallback.`);
-        return {
-            variant_id: FALLBACK_VARIANT_ID,
-            price: null,
-            files: [{
-                type: "front",
-                url: FALLBACK_IMAGE_URL,
-                options: {
-                    positioning: "front",
-                    dimensions: {
-                        width: 1800,
-                        height: 1800
-                    }
-                }
-            }]
-        };
+        return { variant_id: FALLBACK_VARIANT_ID, image_url: FALLBACK_IMAGE_URL, price: null };
     } catch (error) {
         console.error("❌ Error fetching Weird Roach products:", error);
-        return {
-            variant_id: FALLBACK_VARIANT_ID,
-            price: null,
-            files: [{
-                type: "front",
-                url: FALLBACK_IMAGE_URL,
-                options: {
-                    positioning: "front",
-                    dimensions: {
-                        width: 1800,
-                        height: 1800
-                    }
-                }
-            }]
-        };
+        return { variant_id: FALLBACK_VARIANT_ID, image_url: FALLBACK_IMAGE_URL, price: null };
     }
 };
 
+// ✅ Webhook Handler
 export default async function handler(req, res) {
     try {
         if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
@@ -126,6 +63,7 @@ export default async function handler(req, res) {
         console.log("🛒 Processing Checkout Session:", event.data.object.id);
         const session = event.data.object;
 
+        // ✅ Fetch line items from Stripe session
         const lineItemsResponse = await fetch(
             `https://api.stripe.com/v1/checkout/sessions/${session.id}/line_items`,
             {
@@ -144,12 +82,21 @@ export default async function handler(req, res) {
             const productName = item.description;
             console.log("🔍 Searching for variant of:", productName);
 
-            const { variant_id, files, price } = await getVariantIdFromWeirdRoach(productName);
+            const { variant_id, image_url, price } = await getVariantIdFromWeirdRoach(productName);
             items.push({
                 variant_id,
                 quantity: item.quantity,
                 retail_price: price || (item.amount_subtotal / 100).toFixed(2),
-                files
+                files: [{
+                    type: "default",
+                    url: image_url,
+                    options: [
+                        {
+                            id: "location",
+                            value: "front"
+                        }
+                    ]
+                }]
             });
         }
 
@@ -158,6 +105,7 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: "No valid items found for Printful" });
         }
 
+        // ✅ Create Printful Order
         const printfulPayload = {
             store_id: PRINTFUL_STORE_ID,
             recipient: {
