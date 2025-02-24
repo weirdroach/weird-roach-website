@@ -4,11 +4,10 @@ const PRINTFUL_API_URL = "https://api.printful.com";
 const PRINTFUL_ACCESS_TOKEN = process.env.PRINTFUL_ACCESS_TOKEN;
 const PRINTFUL_STORE_ID = process.env.PRINTFUL_STORE_ID;
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
-const FALLBACK_VARIANT_ID = 14904; // Safety fallback
-const FALLBACK_IMAGE_URL = "https://yourdomain.com/path-to-default-design.jpg"; // Default print file
-const PRODUCTS_API_URL = "https://www.weirdroach.com/api/products"; // Your API
+const FALLBACK_VARIANT_ID = 14904;
+const FALLBACK_IMAGE_URL = "https://yourdomain.com/path-to-default-design.jpg";
+const PRODUCTS_API_URL = "https://www.weirdroach.com/api/products";
 
-// ✅ Fetch product variants from Weird Roach API
 const getVariantIdFromWeirdRoach = async (productName) => {
     try {
         console.log("🔍 Fetching variants from Weird Roach API...");
@@ -27,7 +26,6 @@ const getVariantIdFromWeirdRoach = async (productName) => {
 
         for (const product of products) {
             for (const variant of product.variants) {
-                // Normalize product names to improve matching
                 const stripeName = productName.toLowerCase().replace(/[^a-z0-9]/gi, "");
                 const apiVariantName = variant.name.toLowerCase().replace(/[^a-z0-9]/gi, "");
 
@@ -43,13 +41,13 @@ const getVariantIdFromWeirdRoach = async (productName) => {
         }
 
         console.warn(`⚠️ No variant found for "${productName}". Using fallback.`);
+        return { variant_id: FALLBACK_VARIANT_ID, image_url: FALLBACK_IMAGE_URL, price: null };
     } catch (error) {
         console.error("❌ Error fetching Weird Roach products:", error);
+        return { variant_id: FALLBACK_VARIANT_ID, image_url: FALLBACK_IMAGE_URL, price: null };
     }
-    return { variant_id: FALLBACK_VARIANT_ID, image_url: FALLBACK_IMAGE_URL, price: null };
 };
 
-// ✅ Webhook Handler
 export default async function handler(req, res) {
     try {
         if (req.method !== "POST") return res.status(405).json({ error: "Method Not Allowed" });
@@ -62,7 +60,6 @@ export default async function handler(req, res) {
         console.log("🛒 Processing Checkout Session:", event.data.object.id);
         const session = event.data.object;
 
-        // ✅ Fetch line items from Stripe session
         const lineItemsResponse = await fetch(
             `https://api.stripe.com/v1/checkout/sessions/${session.id}/line_items`,
             {
@@ -85,16 +82,15 @@ export default async function handler(req, res) {
             items.push({
                 variant_id,
                 quantity: item.quantity,
-                retail_price: price || (item.amount_subtotal / 100).toFixed(2) // Prefer API price
+                retail_price: price || (item.amount_subtotal / 100).toFixed(2)
             });
-                
+        }
 
         if (!items.length) {
             console.error("❌ No valid items found.");
             return res.status(400).json({ error: "No valid items found for Printful" });
         }
 
-        // ✅ Create Printful Order
         const printfulPayload = {
             store_id: PRINTFUL_STORE_ID,
             recipient: {
