@@ -8,21 +8,55 @@ import https from 'https';
 import http from 'http';
 import fs from 'fs';
 import nodemailer from 'nodemailer';
-import productsRouter from './api/products.js';
 
-// Load environment variables from .env file
-dotenv.config();
-
-// Debug environment variables (safely)
-console.log('=== Environment Variables Debug ===');
-console.log('NODE_ENV:', process.env.NODE_ENV);
-console.log('PRINTFUL_CLIENT_ID exists:', !!process.env.PRINTFUL_CLIENT_ID);
-console.log('PRINTFUL_CLIENT_SECRET exists:', !!process.env.PRINTFUL_CLIENT_SECRET);
-console.log('================================');
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+// ES Module path handling
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Try multiple env file locations for local development
+const envPaths = [
+    path.join(__dirname, '.env.local'),
+    path.join(__dirname, '.env'),
+    path.join(process.cwd(), '.env.local'),
+    path.join(process.cwd(), '.env')
+];
+
+// Load the first env file that exists
+for (const envPath of envPaths) {
+    if (fs.existsSync(envPath)) {
+        console.log('\n=== Loading Environment File ===');
+        console.log('Found env file at:', envPath);
+        dotenv.config({ path: envPath });
+        break;
+    }
+}
+
+// Fallback to hardcoded values for local development
+if (!process.env.PRINTFUL_ACCESS_TOKEN && !process.env.VERCEL) {
+    console.log('\n=== Using Local Development Values ===');
+    process.env.PRINTFUL_ACCESS_TOKEN = 'your_local_token_here';
+    process.env.PRINTFUL_STORE_ID = 'your_local_store_id_here';
+}
+
+// Dynamic import path based on environment
+let productsRouter;
+if (process.env.VERCEL) {
+    productsRouter = (await import('./api/products.js')).default;
+} else {
+    productsRouter = (await import('./pages/api/products.js')).default;
+}
+
+// Load environment variables
+dotenv.config({ path: path.join(__dirname, '.env.local') });
+
+// Debug environment variables
+console.log('\n=== Server Environment Variables Debug ===');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('VERCEL:', process.env.VERCEL);
+console.log('Working Directory:', __dirname);
+console.log('=====================================\n');
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 
@@ -113,7 +147,7 @@ app.post('/api/create-checkout-session', async (req, res) => {
                     name: item.name,
                     images: item.image ? [item.image] : [],
                     metadata: {
-                        printful_variant_id: item.variant_id
+                        printful_sync_variant_id: item.sync_variant_id
                     }
                 },
                 unit_amount: Math.round(parseFloat(item.price) * 100),
@@ -375,15 +409,11 @@ app.post('/webhook', async (req, res) => {
                             email: session.customer_details.email,
                             phone: session.customer_details.phone || ''
                         },
-                        items: sessionWithLineItems.line_items.data.map(item => {
-                            const variantId = item.price.product.metadata.printful_variant_id;
-                            console.log(`Mapping line item to Printful variant: ${variantId}`);
-                            return {
-                                sync_variant_id: variantId,
-                                quantity: item.quantity,
-                                retail_price: (item.amount_total / 100).toString()
-                            };
-                        }),
+                        items: sessionWithLineItems.line_items.data.map(item => ({
+                            sync_variant_id: item.price.product.metadata.printful_sync_variant_id,
+                            quantity: item.quantity,
+                            retail_price: (item.amount_total / 100).toString()
+                        })),
                         retail_costs: {
                             subtotal: (sessionWithLineItems.amount_subtotal / 100).toString(),
                             shipping: (sessionWithLineItems.total_details.amount_shipping / 100).toString(),
@@ -582,5 +612,19 @@ app.use((req, res) => {
     `);
 });
 
-// Remove local server startup code and export for Vercel
+// Export for Vercel
 export default app;
+
+// Local development server
+if (!process.env.VERCEL) {
+    const PORT = process.env.PORT || 3000;
+    const server = http.createServer(app);
+    
+    server.listen(PORT, () => {
+        console.log(`\n=== Server Started ===`);
+        console.log(`Server is running on port ${PORT}`);
+        console.log(`Local: http://localhost:${PORT}`);
+        console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+        console.log(`=====================\n`);
+    });
+}
